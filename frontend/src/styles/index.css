@@ -1,0 +1,560 @@
+/* ====================================================================
+   CIVICCONNECT AI - MODERN 3D DEPTH DESIGN SYSTEM & STYLES
+   ==================================================================== */
+
+:root {
+  /* Color Palette - Serious Modern Civic Tech */
+  --color-primary-900: #07101e;
+  --color-primary-800: #0b192c;
+  --color-primary-700: #142a4a;
+  --color-primary-600: #1e3e62;
+  --color-primary-500: #2b5484;
+
+  --color-accent-600: #008b92;
+  --color-accent-500: #00adb5;
+  --color-accent-400: #26c6da;
+  --color-accent-300: #4dd0e1;
+  --color-accent-100: #e0f7fa;
+
+  --color-bg-main: #f8fafc;
+  --color-bg-card: #ffffff;
+  --color-bg-subtle: #f1f5f9;
+  --color-bg-glass: rgba(255, 255, 255, 0.85);
+
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: #64748b;
+  --color-text-light: #94a3b8;
+  --color-text-inverse: #ffffff;
+
+  --color-border: #e2e8f0;
+  --color-border-hover: #cbd5e1;
+  --color-border-focus: #00adb5;
+
+  /* Semantic Status Colors */
+  --color-success: #10b981;
+  --color-success-bg: #ecfdf5;
+  --color-success-border: #a7f3d0;
+
+  --color-warning: #f59e0b;
+  --color-warning-bg: #fffbeb;
+  --color-warning-border: #fde68a;
+
+  --color-critical: #ef4444;
+  --color-critical-bg: #fef2f2;
+  --color-critical-border: #fecaca;
+
+  --color-info: #3b82f6;
+  --color-info-bg: #eff6ff;
+  --color-info-border: #bfdbfe;
+
+  /* 3D Depth & Elevation Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(11, 25, 44, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(11, 25, 44, 0.08), 0 2px 4px -2px rgba(11, 25, 44, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(11, 25, 44, 0.08), 0 4px 6px -4px rgba(11, 25, 44, 0.04);
+  --shadow-xl: 0 20px 25px -5px rgba(11, 25, 44, 0.1), 0 8px 10px -6px rgba(11, 25, 44, 0.05);
+  --shadow-3d: 0 12px 30px -10px rgba(11, 25, 44, 0.12), 0 4px 10px -2px rgba(0, 173, 181, 0.08);
+  --shadow-3d-hover: 0 22px 38px -12px rgba(11, 25, 44, 0.18), 0 8px 16px -4px rgba(0, 173, 181, 0.15);
+  --shadow-glow: 0 0 20px rgba(0, 173, 181, 0.35);
+
+  /* Border Radii */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --radius-full: 9999px;
+
+  /* Typography */
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-heading: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-spring: 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Reset & Base Setup */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-family: var(--font-sans);
+  background-color: var(--color-bg-main);
+  color: var(--color-text-primary);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  color: var(--color-primary-800);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+p {
+  color: var(--color-text-secondary);
+}
+
+a {
+  color: var(--color-accent-600);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  color: var(--color-accent-500);
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* Focus styles for Accessibility */
+:focus-visible {
+  outline: 2px solid var(--color-accent-500);
+  outline-offset: 2px;
+}
+
+/* 3D Depth Card Utilities */
+.card-3d {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  transition: transform var(--transition-normal), box-shadow var(--transition-normal), border-color var(--transition-normal);
+  will-change: transform, box-shadow;
+}
+
+.card-3d-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-3d-hover);
+  border-color: rgba(0, 173, 181, 0.4);
+}
+
+.card-glass {
+  background: var(--color-bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Hero 3D Floating Layer */
+.hero-depth-layer {
+  background: linear-gradient(135deg, var(--color-primary-800) 0%, var(--color-primary-900) 60%, #040912 100%);
+  border-radius: var(--radius-xl);
+  color: var(--color-text-inverse);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 20px 40px -15px rgba(11, 25, 44, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.hero-depth-layer::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(0, 173, 181, 0.25) 0%, rgba(0, 173, 181, 0) 70%);
+  pointer-events: none;
+}
+
+.hero-depth-layer::after {
+  content: '';
+  position: absolute;
+  bottom: -30%;
+  left: 10%;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(38, 198, 218, 0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* 3D Icon Container */
+.icon-container-3d {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: linear-gradient(145deg, #ffffff, var(--color-bg-subtle));
+  box-shadow: 2px 2px 6px rgba(11, 25, 44, 0.08), -2px -2px 6px rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--color-border);
+}
+
+.icon-container-3d-cyan {
+  background: linear-gradient(145deg, var(--color-accent-100), #ffffff);
+  color: var(--color-accent-600);
+  border: 1px solid rgba(0, 173, 181, 0.2);
+}
+
+/* Badge Utilities (Accessible with Icon + Text + Color) */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.775rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: capitalize;
+}
+
+.badge-critical {
+  background-color: var(--color-critical-bg);
+  color: #b91c1c;
+  border: 1px solid var(--color-critical-border);
+}
+
+.badge-high {
+  background-color: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+}
+
+.badge-medium {
+  background-color: var(--color-warning-bg);
+  color: #b45309;
+  border: 1px solid var(--color-warning-border);
+}
+
+.badge-low {
+  background-color: var(--color-success-bg);
+  color: #047857;
+  border: 1px solid var(--color-success-border);
+}
+
+.badge-info {
+  background-color: var(--color-info-bg);
+  color: #1d4ed8;
+  border: 1px solid var(--color-info-border);
+}
+
+.badge-neutral {
+  background-color: var(--color-bg-subtle);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+/* Layout Utilities */
+.container {
+  width: 100%;
+  max-width: 1240px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
+
+.container-narrow {
+  max-width: 860px;
+}
+
+.grid-responsive-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+/* Custom Sleek Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(241, 245, 249, 0.6);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ====================================================================
+   GENAI CHATBOT COMPONENT DESIGN SYSTEM
+   ==================================================================== */
+
+/* Floating Launcher Button */
+.civic-chat-launcher {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #008b92 0%, #00adb5 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 10px 25px -4px rgba(0, 173, 181, 0.4), 0 4px 12px -2px rgba(11, 25, 44, 0.2);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.civic-chat-launcher:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 16px 32px -4px rgba(0, 173, 181, 0.5), 0 6px 16px -2px rgba(11, 25, 44, 0.25);
+  background: linear-gradient(135deg, #00777d 0%, #008b92 100%);
+}
+
+.civic-chat-launcher:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Chat Main Window */
+.civic-chat-window {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1000;
+  width: 440px;
+  max-width: calc(100vw - 32px);
+  height: 620px;
+  max-height: calc(100vh - 48px);
+  background-color: #f8fafc;
+  border-radius: 24px;
+  box-shadow: 0 24px 48px -12px rgba(11, 25, 44, 0.28), 0 0 0 1px rgba(0, 173, 181, 0.18);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: civicSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes civicSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Chat Header Gradients by Role */
+.civic-chat-header-citizen {
+  background: linear-gradient(135deg, #0b192c 0%, #142a4a 60%, #008b92 100%);
+}
+
+.civic-chat-header-worker {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #b45309 100%);
+}
+
+.civic-chat-header-corporation {
+  background: linear-gradient(135deg, #07101e 0%, #0b192c 50%, #312e81 100%);
+}
+
+/* Chat Messages Scroll Container */
+.civic-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+/* Message Bubbles */
+.civic-chat-bubble-user {
+  max-width: 84%;
+  background: linear-gradient(135deg, #0b192c 0%, #142a4a 100%);
+  color: #ffffff;
+  padding: 10px 14px;
+  border-radius: 18px 18px 2px 18px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  box-shadow: 0 4px 10px rgba(11, 25, 44, 0.12);
+  align-self: flex-end;
+  word-break: break-word;
+}
+
+.civic-chat-bubble-ai {
+  max-width: 86%;
+  background: #ffffff;
+  color: #0f172a;
+  padding: 12px 16px;
+  border-radius: 18px 18px 18px 2px;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 12px rgba(11, 25, 44, 0.05);
+  align-self: flex-start;
+  word-break: break-word;
+}
+
+.civic-chat-bubble-error {
+  max-width: 86%;
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 12px 16px;
+  border-radius: 18px 18px 18px 2px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  border: 1px solid #fecaca;
+  align-self: flex-start;
+}
+
+/* Chat Input Bar */
+.civic-chat-input-bar {
+  padding: 12px 14px;
+  background-color: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.civic-chat-input-field {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background-color: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+}
+
+.civic-chat-input-field:focus {
+  outline: none;
+  border-color: #00adb5;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(0, 173, 181, 0.15);
+}
+
+.civic-chat-send-btn {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #008b92 0%, #00adb5 100%);
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 173, 181, 0.3);
+  transition: all 0.2s ease;
+}
+
+.civic-chat-send-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #00777d 0%, #008b92 100%);
+  transform: translateY(-1px);
+}
+
+.civic-chat-send-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Animation utilities */
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(0, 173, 181, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 22px rgba(0, 173, 181, 0.45);
+  }
+}
+
+.pulse-glow {
+  animation: pulseGlow 2.5s infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes ping {
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+.animate-ping {
+  animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* Respect user's motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .card-3d-hover:hover {
+    transform: none !important;
+  }
+}
+
+/* Mobile Adjustments */
+@media (max-width: 640px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  .grid-responsive-cards {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .civic-chat-window {
+    bottom: 0;
+    right: 0;
+    width: 100vw;
+    max-width: 100vw;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .civic-chat-launcher {
+    bottom: 16px;
+    right: 16px;
+    padding: 10px 14px;
+  }
+}
