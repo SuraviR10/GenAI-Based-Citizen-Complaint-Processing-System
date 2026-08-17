@@ -41,12 +41,12 @@ export const WorkerSelectorModal: React.FC<WorkerSelectorModalProps> = ({
       setInstructions('');
 
       api.listWorkers()
-        .then((data) => {
+        .then((data: WorkerProfile[]) => {
           setWorkers(data);
           // Suggest appropriate worker based on category
           if (issue?.category) {
             const cat = issue.category.toLowerCase();
-            let matched = data.find(w => {
+            let matched = data.find((w: WorkerProfile) => {
               const dept = w.department.toLowerCase();
               if (cat.includes('road') && dept.includes('road')) return true;
               if (cat.includes('water') && dept.includes('water')) return true;
@@ -62,7 +62,7 @@ export const WorkerSelectorModal: React.FC<WorkerSelectorModalProps> = ({
             }
           }
         })
-        .catch((err) => {
+        .catch((err: any) => {
           setError(err.message || 'Failed to load workers');
         })
         .finally(() => {
