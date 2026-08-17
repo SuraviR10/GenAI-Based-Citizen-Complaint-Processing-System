@@ -148,3 +148,30 @@ cd frontend
 npm run build
 ```
 - Validates 100% strict TypeScript types and compiles optimized production assets.
+
+---
+
+## 6. Deploying to Vercel
+
+CivicConnect AI is configured for instant deployment on [Vercel](https://vercel.com).
+
+### Option A: Deploy Frontend on Vercel (Recommended)
+1. In the Vercel Dashboard, click **New Project** and import your GitHub repository.
+2. Set **Root Directory** to `frontend`.
+3. Framework Preset will auto-detect as **Vite**.
+4. In **Environment Variables**, add:
+   - `VITE_SUPABASE_URL`: `https://your-project.supabase.co`
+   - `VITE_SUPABASE_PUBLISHABLE_KEY`: `your_supabase_anon_key`
+   - `VITE_API_BASE_URL`: `https://your-backend-api.com` (or your deployed FastAPI backend URL)
+5. Click **Deploy**. Vercel will automatically handle client-side Single Page Application (SPA) routing via `frontend/vercel.json`.
+
+### Option B: Deploy Fullstack (Root Repo) on Vercel
+1. Import your root GitHub repository into Vercel.
+2. Keep **Root Directory** as `./`.
+3. In **Environment Variables**, add:
+   - `SUPABASE_URL`: `https://your-project.supabase.co`
+   - `SUPABASE_SERVICE_ROLE_KEY`: `your_supabase_service_role_key`
+   - `GROQ_API_KEY`: `gsk_your_groq_key`
+   - `VITE_SUPABASE_URL`: `https://your-project.supabase.co`
+   - `VITE_SUPABASE_PUBLISHABLE_KEY`: `your_supabase_anon_key`
+4. Click **Deploy**. Root `vercel.json` will build the frontend assets and deploy the backend as a serverless Python API (`/api/*`).
