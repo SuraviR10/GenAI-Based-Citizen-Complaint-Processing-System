@@ -1,9 +1,97 @@
 -- ====================================================================
--- CIVICCONNECT AI - MYSURU (MCC) SEED DATA
--- Populate realistic civic issues and updates for Mysuru City
+-- CIVICCONNECT AI - MYSURU (MCC) SEED DATA (100% IDEMPOTENT)
+-- Populate realistic profiles, civic issues, updates, and assignments
 -- ====================================================================
 
--- 1. Insert Sample Mysuru Civic Issues
+-- 1. Insert Initial Profiles (Corporation Officials & Field Workers)
+INSERT INTO public.profiles (
+    id,
+    full_name,
+    email,
+    role,
+    preferred_language,
+    area,
+    department,
+    phone,
+    worker_status
+) VALUES
+(
+    'c9000000-0000-0000-0000-000000000001',
+    'Dr. K. Srinivas',
+    'officer@civicconnect.org',
+    'corporation',
+    'English',
+    'Mysuru Citywide',
+    'Executive Administration',
+    '+91-821-2449800',
+    'available'
+),
+(
+    'w1000000-0000-0000-0000-000000000001',
+    'Ramesh Rao',
+    'ramesh.rao@mcc.gov.in',
+    'worker',
+    'Kannada',
+    'Gokulam & Vontikoppal',
+    'Road Maintenance',
+    '+91-98451-23401',
+    'assigned'
+),
+(
+    'w2000000-0000-0000-0000-000000000002',
+    'Anil Kumar',
+    'anil.kumar@mcc.gov.in',
+    'worker',
+    'Kannada',
+    'Kuvempunagar & Saraswathipuram',
+    'Water & Sewage',
+    '+91-98451-23402',
+    'assigned'
+),
+(
+    'w3000000-0000-0000-0000-000000000003',
+    'Suresh Gowda',
+    'suresh.gowda@mcc.gov.in',
+    'worker',
+    'Kannada',
+    'Vijayanagar & Hebbal',
+    'Street Lighting',
+    '+91-98451-23403',
+    'available'
+),
+(
+    'w4000000-0000-0000-0000-000000000004',
+    'Priya Sharma',
+    'priya.sharma@mcc.gov.in',
+    'worker',
+    'English',
+    'Jayalakshmipuram & VV Mohalla',
+    'Garbage & Sanitation',
+    '+91-98451-23404',
+    'available'
+),
+(
+    'w5000000-0000-0000-0000-000000000005',
+    'Manjunath K',
+    'manjunath.k@mcc.gov.in',
+    'worker',
+    'Kannada',
+    'City Central Zone',
+    'Public Safety & Hazards',
+    '+91-98451-23405',
+    'available'
+)
+ON CONFLICT (id) DO UPDATE SET
+    full_name = EXCLUDED.full_name,
+    email = EXCLUDED.email,
+    role = EXCLUDED.role,
+    preferred_language = EXCLUDED.preferred_language,
+    area = EXCLUDED.area,
+    department = EXCLUDED.department,
+    phone = EXCLUDED.phone,
+    worker_status = EXCLUDED.worker_status;
+
+-- 2. Insert Sample Mysuru Civic Issues
 INSERT INTO public.civic_issues (
     id,
     title,
@@ -98,7 +186,7 @@ ON CONFLICT (id) DO UPDATE SET
     priority_level = EXCLUDED.priority_level,
     status = EXCLUDED.status;
 
--- 2. Insert Timeline Progress Updates for Mysuru Issues
+-- 3. Insert Timeline Progress Updates for Mysuru Issues
 INSERT INTO public.issue_updates (
     issue_id,
     status,
@@ -142,9 +230,10 @@ INSERT INTO public.issue_updates (
     NOW() - INTERVAL '4 days'
 );
 
--- 3. Insert Official Municipal Responses
+-- 4. Insert Official Municipal Responses
 INSERT INTO public.responses (
     issue_id,
+    corporation_user_id,
     official_response,
     simplified_response,
     visibility,
@@ -152,6 +241,7 @@ INSERT INTO public.responses (
 ) VALUES
 (
     'a1000000-0000-0000-0000-000000000001',
+    'c9000000-0000-0000-0000-000000000001',
     'Pursuant to Section 58 of Karnataka Municipal Corporation Act, MCC Work Order WO-MYS-2026-4109 has been issued. Cold-milling and asphaltic concrete wearing course application is authorized with target completion within 48 hours, weather permitting.',
     'Good news: Mysuru Municipal Corporation (MCC) has approved emergency road repairs. A certified repair crew has already started fixing Contour Road and aims to finish within 48 hours.',
     'public',
@@ -159,9 +249,44 @@ INSERT INTO public.responses (
 ),
 (
     'a2000000-0000-0000-0000-000000000002',
+    'c9000000-0000-0000-0000-000000000001',
     'High-pressure suction jetting unit deployed under Sanitary Sub-division 4. Desilting of main arterial sewer line is in progress to restore normal hydraulic flow.',
     'MCC drainage crew is using a high-pressure jetting machine to clear the blocked sewage line near Kuvempunagar Complex.',
     'public',
     NOW() - INTERVAL '3 days'
 );
 
+-- 5. Insert Worker Assignments
+INSERT INTO public.assignments (
+    issue_id,
+    worker_id,
+    assigned_by,
+    instructions,
+    priority_directive,
+    target_deadline,
+    equipment_required,
+    assigned_at,
+    status
+) VALUES
+(
+    'a1000000-0000-0000-0000-000000000001',
+    'w1000000-0000-0000-0000-000000000001',
+    'c9000000-0000-0000-0000-000000000001',
+    'Emergency crater repair. Mobilize hot-mix asphalt unit and traffic safety cones.',
+    '🚨 Emergency / Immediate Dispatch',
+    'Within 24 Hours',
+    ARRAY['Asphalt Hot-Mix & Roller', 'Traffic Barricades & Cones'],
+    NOW() - INTERVAL '2 days',
+    'assigned'
+),
+(
+    'a2000000-0000-0000-0000-000000000002',
+    'w2000000-0000-0000-0000-000000000002',
+    'c9000000-0000-0000-0000-000000000001',
+    'Jetting and clearance of blocked sewer line near complex.',
+    '⚡ High Urgency (24h-48h)',
+    'Within 48 Hours',
+    ARRAY['Suction Jetting Tanker'],
+    NOW() - INTERVAL '4 days',
+    'assigned'
+);
