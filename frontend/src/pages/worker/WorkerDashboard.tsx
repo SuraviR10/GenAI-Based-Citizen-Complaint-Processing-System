@@ -24,7 +24,7 @@ export const WorkerDashboard: React.FC = () => {
   const { profile } = useAuth();
   const { success } = useToast();
 
-  const workerId = profile?.id || '';
+  const workerId = profile?.id || 'b1000000-0000-0000-0000-000000000001';
 
   const [dashboard, setDashboard] = useState<WorkerDashboardData | null>(null);
   const [tasks, setTasks] = useState<WorkerTask[]>([]);

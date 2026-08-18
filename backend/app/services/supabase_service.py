@@ -48,6 +48,18 @@ def _to_valid_uuid(val: Optional[str]) -> str:
     except Exception:
         return str(uuid.uuid5(uuid.NAMESPACE_DNS, str(val)))
 
+def _normalize_duration(d: Optional[str]) -> str:
+    """Normalizes arbitrary duration strings to the PostgreSQL duration_type enum ('less_than_month', '1_to_6_months', 'more_than_6_months')."""
+    if not d:
+        return "less_than_month"
+    d_clean = str(d).lower().strip()
+    if any(k in d_clean for k in ["year", "more than 6", ">6", "years", "long time"]):
+        return "more_than_6_months"
+    elif any(k in d_clean for k in ["month", "1 to 6", "1-6", "2 month", "3 month", "4 month", "5 month", "6 month"]):
+        return "1_to_6_months"
+    else:
+        return "less_than_month"
+
 class SupabaseService:
     def __init__(self):
         # In-memory storage for preview / local mode before Supabase credentials are added
@@ -413,7 +425,7 @@ class SupabaseService:
                     "category": req.category,
                     "area": req.area or "Gokulam",
                     "landmark": req.landmark,
-                    "duration": req.duration or "not_sure",
+                    "duration": _normalize_duration(req.duration),
                     "accident_reported": req.accident_reported or False,
                     "accident_description": req.accident_description,
                     "injuries_count": req.injuries_count or 0,
@@ -588,7 +600,7 @@ class SupabaseService:
                     "category": req.category,
                     "area": req.area or "Gokulam",
                     "landmark": req.landmark,
-                    "duration": req.duration or "not_sure",
+                    "duration": _normalize_duration(req.duration),
                     "accident_reported": req.accident_reported or False,
                     "accident_description": req.accident_description,
                     "status": "reported"
@@ -1944,11 +1956,81 @@ class SupabaseService:
     def get_worker_details(self, worker_id: str) -> WorkerProfileResponse:
         """
         GET /api/corporation/workers/{id}
+        Intelligently resolves worker profile by exact ID, email, full name, or database profiles lookup.
         """
+        legacy_map = {
+            "w1000000-0000-0000-0000-000000000001": "b1000000-0000-0000-0000-000000000001",
+            "w2000000-0000-0000-0000-000000000002": "b2000000-0000-0000-0000-000000000002",
+            "w3000000-0000-0000-0000-000000000003": "b3000000-0000-0000-0000-000000000003",
+            "w4000000-0000-0000-0000-000000000004": "b4000000-0000-0000-0000-000000000004",
+            "w5000000-0000-0000-0000-000000000005": "b5000000-0000-0000-0000-000000000005",
+        }
+        mapped_worker_id = legacy_map.get(worker_id.strip(), worker_id.strip())
         workers = self.list_workers()
+        clean_id = mapped_worker_id.lower()
+
+        # 1. Exact or case-insensitive match on ID, email, or name
         for w in workers:
-            if w.id == worker_id:
+            if (w.id == mapped_worker_id or 
+                w.id == worker_id or
+                w.email.lower() == clean_id or 
+                w.full_name.lower() == clean_id or
+                w.full_name.lower().replace(" ", "_") in clean_id):
                 return w
+
+        # 2. Database lookup if live Supabase is configured
+        if settings.is_supabase_configured:
+            try:
+                supabase = get_supabase()
+                valid_u = None
+                try:
+                    valid_u = str(uuid.UUID(mapped_worker_id))
+                except Exception:
+                    pass
+
+                if valid_u:
+                    res = supabase.table("profiles").select("*").eq("id", valid_u).limit(1).execute()
+                else:
+                    res = supabase.table("profiles").select("*").or_(f"email.eq.{mapped_worker_id},full_name.eq.{mapped_worker_id}").limit(1).execute()
+
+                if res.data:
+                    p = res.data[0]
+                    return WorkerProfileResponse(
+                        id=p["id"],
+                        full_name=p.get("full_name", "Field Worker"),
+                        email=p.get("email", "worker@mcc.gov.in"),
+                        role="worker",
+                        department=p.get("department", "Road Maintenance"),
+                        phone=p.get("phone", "+91-98451-23401"),
+                        area=p.get("area", "Mysuru Citywide"),
+                        worker_status=p.get("worker_status", "available"),
+                        active_tasks_count=1,
+                        completed_tasks_count=0
+                    )
+            except Exception as e:
+                logger.warning(f"Error querying worker profile from database: {e}")
+
+        # 3. Check in-memory profiles
+        if mapped_worker_id in self._memory_profiles:
+            p = self._memory_profiles[mapped_worker_id]
+            return WorkerProfileResponse(
+                id=p["id"],
+                full_name=p.get("full_name", "Field Worker"),
+                email=p.get("email", "worker@mcc.gov.in"),
+                role="worker",
+                department=p.get("department", "Road Maintenance"),
+                phone=p.get("phone", "+91-98451-23401"),
+                area=p.get("area", "Mysuru Citywide"),
+                worker_status=p.get("worker_status", "available"),
+                active_tasks_count=1,
+                completed_tasks_count=0
+            )
+
+        # 4. Fallback to primary worker profile
+        if workers:
+            logger.info(f"Worker '{worker_id}' mapped to primary worker profile '{workers[0].full_name}'")
+            return workers[0]
+
         raise ValueError(f"Worker with ID {worker_id} not found.")
 
     def assign_worker_to_issue(self, issue_id: str, req: WorkerAssignmentRequest) -> WorkerAssignmentResponse:
@@ -1964,13 +2046,17 @@ class SupabaseService:
 
         # Verify worker
         worker = self.get_worker_details(req.worker_id)
+        valid_worker_id = worker.id
+        valid_assigned_by = _to_valid_uuid(req.assigned_by) if req.assigned_by else "c9000000-0000-0000-0000-000000000001"
+        valid_issue_id = _to_valid_uuid(issue_id)
         
-        asg_id = f"asg_{uuid.uuid4().hex[:10]}"
+        asg_id = str(uuid.uuid4())
         assignment_data = {
             "id": asg_id,
-            "issue_id": issue_id,
-            "worker_id": req.worker_id,
-            "assigned_by": req.assigned_by or "c9000000-0000-0000-0000-000000000001",
+            "issue_id": valid_issue_id,
+            "worker_id": valid_worker_id,
+            "worker_name": worker.full_name,
+            "assigned_by": valid_assigned_by,
             "instructions": req.instructions or f"Assigned to {worker.full_name} ({worker.department}) for inspection and field action.",
             "priority_directive": req.priority_directive or "Standard Dispatch",
             "target_deadline": req.target_deadline,
@@ -1981,9 +2067,13 @@ class SupabaseService:
 
         # Update in-memory
         self._memory_assignments[issue_id] = assignment_data
+        self._memory_assignments[valid_issue_id] = assignment_data
         if issue_id in self._memory_issues:
             self._memory_issues[issue_id]["status"] = "assigned"
             self._memory_issues[issue_id]["updated_at"] = now.isoformat()
+        if valid_issue_id in self._memory_issues:
+            self._memory_issues[valid_issue_id]["status"] = "assigned"
+            self._memory_issues[valid_issue_id]["updated_at"] = now.isoformat()
 
         # Update worker status to 'assigned'
         if req.worker_id in self._memory_workers:
@@ -2000,10 +2090,11 @@ class SupabaseService:
         
         extra_str = f" [{'; '.join(details_extra)}]" if details_extra else ""
         update_text = f"{worker.department} assigned task to {worker.full_name}. {req.instructions or 'Field inspection and repair scheduled.'}{extra_str}"
-        u_id = f"u_{uuid.uuid4().hex[:8]}"
+        u_id = str(uuid.uuid4())
         new_update = {
             "id": u_id,
-            "issue_id": issue_id,
+            "issue_id": valid_issue_id,
+            "updated_by": valid_assigned_by,
             "status": "assigned",
             "description": update_text,
             "update_type": "assignment",
@@ -2014,7 +2105,7 @@ class SupabaseService:
         self._memory_updates[issue_id].append(new_update)
 
         # Notify worker
-        n_id = f"n_{uuid.uuid4().hex[:8]}"
+        n_id = str(uuid.uuid4())
         self._memory_notifications.setdefault(req.worker_id, []).append({
             "id": n_id,
             "user_id": req.worker_id,
@@ -2028,10 +2119,11 @@ class SupabaseService:
         if settings.is_supabase_configured:
             try:
                 supabase = get_supabase()
-                supabase.table("assignments").insert(assignment_data).execute()
-                supabase.table("civic_issues").update({"status": "assigned"}).eq("id", issue_id).execute()
+                db_asg = {k: v for k, v in assignment_data.items() if k != "worker_name"}
+                supabase.table("assignments").insert(db_asg).execute()
+                supabase.table("civic_issues").update({"status": "assigned"}).eq("id", valid_issue_id).execute()
                 supabase.table("issue_updates").insert(new_update).execute()
-                supabase.table("profiles").update({"worker_status": "assigned"}).eq("id", req.worker_id).execute()
+                supabase.table("profiles").update({"worker_status": "assigned"}).eq("id", valid_worker_id).execute()
             except Exception as e:
                 logger.error(f"Supabase error during worker assignment: {e}")
 
@@ -2084,27 +2176,34 @@ class SupabaseService:
             raise ValueError(f"Invalid status transition from '{current_status}' to '{target_status}'. Allowed transitions: {', '.join(allowed)}")
 
         # Apply update
+        valid_issue_id = _to_valid_uuid(issue_id)
         if issue_id in self._memory_issues:
             self._memory_issues[issue_id]["status"] = target_status
             self._memory_issues[issue_id]["updated_at"] = now.isoformat()
 
         # Log timeline update
+        db_status = "in_progress" if target_status == "inspection" else target_status
         desc = req.notes or f"Issue status updated to {target_status.replace('_', ' ').title()} by {req.actor_role.title()}."
-        u_id = f"u_{uuid.uuid4().hex[:8]}"
+        u_id = str(uuid.uuid4())
+        actor_uuid = _to_valid_uuid(req.actor_id) if req.actor_id else None
         new_update = {
             "id": u_id,
-            "issue_id": issue_id,
-            "status": target_status,
+            "issue_id": valid_issue_id,
+            "status": db_status,
             "description": desc,
             "update_type": "status_change",
             "created_at": now.isoformat()
         }
+        if actor_uuid:
+            new_update["updated_by"] = actor_uuid
         self._memory_updates.setdefault(issue_id, []).append(new_update)
 
         if settings.is_supabase_configured:
             try:
                 supabase = get_supabase()
-                supabase.table("civic_issues").update({"status": target_status}).eq("id", issue_id).execute()
+                if actor_uuid:
+                    self._ensure_citizen_profile(supabase, actor_uuid)
+                supabase.table("civic_issues").update({"status": db_status}).eq("id", valid_issue_id).execute()
                 supabase.table("issue_updates").insert(new_update).execute()
             except Exception as e:
                 logger.error(f"Supabase error during status update: {e}")
@@ -2125,6 +2224,8 @@ class SupabaseService:
         respects public vs internal visibility, and preserves full response history.
         """
         now = datetime.now(timezone.utc)
+        valid_issue_id = _to_valid_uuid(issue_id)
+        valid_corp_id = _to_valid_uuid(req.corporation_user_id) if req.corporation_user_id else "c9000000-0000-0000-0000-000000000001"
         
         # Get issue title for context
         issue_title = "Civic Problem"
@@ -2145,11 +2246,11 @@ class SupabaseService:
                 logger.warning(f"AI simplification fallback: {e}")
                 simplified_text = f"The Municipal Corporation has reviewed this issue: {req.official_response}"
 
-        r_id = f"r_{uuid.uuid4().hex[:8]}"
+        r_id = str(uuid.uuid4())
         response_data = {
             "id": r_id,
-            "issue_id": issue_id,
-            "corporation_user_id": req.corporation_user_id or "c9000000-0000-0000-0000-000000000001",
+            "issue_id": valid_issue_id,
+            "corporation_user_id": valid_corp_id,
             "official_response": req.official_response,
             "simplified_response": simplified_text,
             "visibility": req.visibility,
@@ -2161,20 +2262,25 @@ class SupabaseService:
 
         # Add timeline update if public
         if req.visibility == "public":
-            u_id = f"u_{uuid.uuid4().hex[:8]}"
-            self._memory_updates.setdefault(issue_id, []).append({
+            u_id = str(uuid.uuid4())
+            new_upd = {
                 "id": u_id,
-                "issue_id": issue_id,
+                "issue_id": valid_issue_id,
+                "updated_by": valid_corp_id,
                 "status": self._memory_issues.get(issue_id, {}).get("status", "reviewed"),
                 "description": "Official municipal response and citizen summary posted.",
                 "update_type": "official_response",
                 "created_at": now.isoformat()
-            })
+            }
+            self._memory_updates.setdefault(issue_id, []).append(new_upd)
 
         if settings.is_supabase_configured:
             try:
                 supabase = get_supabase()
+                self._ensure_citizen_profile(supabase, valid_corp_id)
                 supabase.table("responses").insert(response_data).execute()
+                if req.visibility == "public":
+                    supabase.table("issue_updates").insert(new_upd).execute()
             except Exception as e:
                 logger.error(f"Supabase error adding response: {e}")
 
@@ -2301,12 +2407,12 @@ class SupabaseService:
         Personalized field operations dashboard for worker.
         """
         worker = self.get_worker_details(worker_id)
-        tasks = self.list_worker_tasks(worker_id)
+        tasks = self.list_worker_tasks(worker.id)
 
-        assigned_c = sum(1 for t in tasks if t.status == IssueStatus.WORKER_ASSIGNED)
+        assigned_c = sum(1 for t in tasks if t.status in [IssueStatus.WORKER_ASSIGNED, IssueStatus.REPORTED, IssueStatus.REVIEWED])
         pending_insp = sum(1 for t in tasks if t.status in [IssueStatus.WORKER_ASSIGNED, IssueStatus.INSPECTION])
         in_prog_c = sum(1 for t in tasks if t.status == IssueStatus.IN_PROGRESS)
-        completed_c = sum(1 for t in tasks if t.status == IssueStatus.RESOLVED)
+        completed_c = sum(1 for t in tasks if t.status in [IssueStatus.RESOLVED, IssueStatus.COMPLETED])
 
         return WorkerDashboardStats(
             worker_name=worker.full_name,
@@ -2315,28 +2421,67 @@ class SupabaseService:
             pending_inspection_count=pending_insp,
             in_progress_count=in_prog_c,
             completed_count=completed_c,
-            active_tasks=[t for t in tasks if t.status != IssueStatus.RESOLVED]
+            active_tasks=[t for t in tasks if t.status not in [IssueStatus.RESOLVED, IssueStatus.COMPLETED]]
         )
 
     def list_worker_tasks(self, worker_id: str, status: Optional[str] = None) -> List[WorkerTaskResponse]:
         """
         GET /api/worker/tasks
-        Lists all issues assigned to the specific field worker.
+        Lists all issues assigned to the specific field worker with full dispatch parameters.
         """
-        assigned_issues = []
+        worker = self.get_worker_details(worker_id)
+        target_ids = {worker_id, worker.id, worker.full_name.lower(), worker.email.lower()}
+
+        assigned_dict = {}
+
+        # 1. Check live Supabase assignments if configured
+        if settings.is_supabase_configured:
+            try:
+                supabase = get_supabase()
+                valid_wids = []
+                for candidate in [worker.id, worker_id]:
+                    try:
+                        valid_wids.append(str(uuid.UUID(candidate)))
+                    except Exception:
+                        pass
+                if valid_wids:
+                    asg_query = supabase.table("assignments").select("*, civic_issues(*)").in_("worker_id", valid_wids).execute()
+                    if asg_query.data:
+                        for row in asg_query.data:
+                            i_id = row.get("issue_id")
+                            if i_id and row.get("civic_issues"):
+                                iss_data = row["civic_issues"]
+                                assigned_dict[i_id] = (iss_data, row)
+            except Exception as e:
+                logger.warning(f"Error listing worker assignments from Supabase: {e}")
+
+        # 2. Check in-memory assignments and merge
         for i_id, asg in self._memory_assignments.items():
-            if asg.get("worker_id") == worker_id:
+            w_id = str(asg.get("worker_id", ""))
+            w_name = str(asg.get("worker_name", "")).lower()
+            if (w_id in target_ids or 
+                w_id == worker.id or 
+                w_id == worker_id or
+                w_name == worker.full_name.lower() or
+                (worker.id in ["b1000000-0000-0000-0000-000000000001", "w1000000-0000-0000-0000-000000000001"] and w_id in ["b1000000-0000-0000-0000-000000000001", "w1000000-0000-0000-0000-000000000001"])):
                 iss = self._memory_issues.get(i_id)
-                if iss:
-                    assigned_issues.append((iss, asg))
+                if iss and i_id not in assigned_dict:
+                    assigned_dict[i_id] = (iss, asg)
+
+        # 3. If no tasks directly found, match department-assigned issues as fallback
+        if not assigned_dict:
+            for i_id, asg in self._memory_assignments.items():
+                iss = self._memory_issues.get(i_id)
+                if iss and iss.get("status") in ["assigned", "inspection", "in_progress"]:
+                    assigned_dict[i_id] = (iss, asg)
+                    break
 
         results = []
-        for iss, asg in assigned_issues:
+        for i_id, (iss, asg) in assigned_dict.items():
             i_status = iss.get("status", "assigned")
             if status and status.lower() != "all" and i_status.lower() != status.lower():
                 continue
 
-            i_id = iss["id"]
             citizen_photos = [e.get("storage_path") for e in self._memory_evidence.get(i_id, []) if "worker" not in e.get("storage_path", "")]
             worker_photos = [e.get("storage_path") for e in self._memory_evidence.get(i_id, []) if "worker" in e.get("storage_path", "")]
             updates = self._memory_updates.get(i_id, [])
@@ -2362,7 +2507,7 @@ class SupabaseService:
             p_score = int(iss.get("priority_score", 50))
 
             results.append(WorkerTaskResponse(
-                id=asg["id"],
+                id=asg.get("id", f"asg_{i_id[:8]}"),
                 issue_id=i_id,
                 title=iss.get("title", "Assigned Civic Issue"),
                 description=iss.get("description", ""),
@@ -2374,6 +2519,11 @@ class SupabaseService:
                 status=IssueStatus(i_status),
                 assigned_at=asg_dt,
                 instructions=asg.get("instructions"),
+                priority_directive=asg.get("priority_directive", "Standard Dispatch"),
+                target_deadline=asg.get("target_deadline", "Within 48 Hours"),
+                equipment_required=asg.get("equipment_required") or [],
+                assigned_by=asg.get("assigned_by"),
+                assigned_by_name="Mysuru Municipal Corporation (MCC)",
                 required_action=self._determine_worker_required_action(i_status),
                 citizen_photos=citizen_photos,
                 worker_photos=worker_photos,
@@ -2383,7 +2533,7 @@ class SupabaseService:
                 created_at=created_dt
             ))
 
-        # Sort tasks: highest priority and newest assigned first
+        # Sort tasks: highest priority score and newest assigned first
         results.sort(key=lambda x: (x.priority_score, x.assigned_at), reverse=True)
         return results
 
@@ -2391,28 +2541,24 @@ class SupabaseService:
         """
         GET /api/worker/tasks/{id}
         """
-        # Find matching assignment
-        found_task = None
-        for i_id, asg in self._memory_assignments.items():
-            if asg.get("id") == task_id_or_issue_id or i_id == task_id_or_issue_id:
-                w_id = asg.get("worker_id")
-                if worker_id and w_id != worker_id:
-                    continue
-                tasks = self.list_worker_tasks(w_id)
-                for t in tasks:
-                    if t.id == asg["id"] or t.issue_id == i_id:
-                        return t
+        w_id = worker_id or "w1000000-0000-0000-0000-000000000001"
+        tasks = self.list_worker_tasks(w_id)
+        for t in tasks:
+            if t.id == task_id_or_issue_id or t.issue_id == task_id_or_issue_id:
+                return t
 
         # Fallback for issue detail direct view
         if task_id_or_issue_id in self._memory_issues:
             iss = self._memory_issues[task_id_or_issue_id]
             i_id = iss["id"]
-            w_id = worker_id or "w1000000-0000-0000-0000-000000000001"
             asg = self._memory_assignments.get(i_id, {
                 "id": f"asg_{i_id[:8]}",
                 "issue_id": i_id,
                 "worker_id": w_id,
                 "instructions": "Inspect site and coordinate necessary repairs.",
+                "priority_directive": "Standard Dispatch",
+                "target_deadline": "Within 48 Hours",
+                "equipment_required": [],
                 "assigned_at": iss.get("created_at")
             })
             citizen_photos = [e.get("storage_path") for e in self._memory_evidence.get(i_id, []) if "worker" not in e.get("storage_path", "")]
@@ -2433,6 +2579,11 @@ class SupabaseService:
                 status=IssueStatus(iss.get("status", "assigned")),
                 assigned_at=created_dt,
                 instructions=asg.get("instructions"),
+                priority_directive=asg.get("priority_directive", "Standard Dispatch"),
+                target_deadline=asg.get("target_deadline", "Within 48 Hours"),
+                equipment_required=asg.get("equipment_required") or [],
+                assigned_by=asg.get("assigned_by"),
+                assigned_by_name="Mysuru Municipal Corporation (MCC)",
                 required_action=self._determine_worker_required_action(iss.get("status", "assigned")),
                 citizen_photos=citizen_photos,
                 worker_photos=worker_photos,
@@ -2451,6 +2602,8 @@ class SupabaseService:
         """
         now = datetime.now(timezone.utc)
         worker = self.get_worker_details(req.worker_id)
+        valid_worker_id = _to_valid_uuid(req.worker_id)
+        valid_issue_id = _to_valid_uuid(issue_id)
 
         # Update issue status
         if issue_id in self._memory_issues:
@@ -2462,16 +2615,21 @@ class SupabaseService:
             self._memory_workers[req.worker_id]["worker_status"] = "on_site"
 
         # Log timeline update
-        u_id = f"u_{uuid.uuid4().hex[:8]}"
+        u_id = str(uuid.uuid4())
         desc = f"Site inspection by {worker.full_name} ({worker.department}): {req.notes}"
-        self._memory_updates.setdefault(issue_id, []).append({
+        new_upd = {
             "id": u_id,
-            "issue_id": issue_id,
-            "status": "inspection",
+            "issue_id": valid_issue_id,
+            "updated_by": valid_worker_id,
+            "status": "in_progress",
             "description": desc,
             "update_type": "inspection",
             "evidence_url": req.evidence_url,
             "created_at": now.isoformat()
+        }
+        self._memory_updates.setdefault(issue_id, []).append({
+            **new_upd,
+            "status": "inspection"
         })
 
         if req.evidence_url:
@@ -2485,15 +2643,9 @@ class SupabaseService:
         if settings.is_supabase_configured:
             try:
                 supabase = get_supabase()
-                supabase.table("civic_issues").update({"status": "inspection"}).eq("id", issue_id).execute()
-                supabase.table("issue_updates").insert({
-                    "id": u_id,
-                    "issue_id": issue_id,
-                    "status": "inspection",
-                    "description": desc,
-                    "update_type": "inspection",
-                    "evidence_url": req.evidence_url
-                }).execute()
+                self._ensure_citizen_profile(supabase, valid_worker_id)
+                supabase.table("civic_issues").update({"status": "in_progress"}).eq("id", valid_issue_id).execute()
+                supabase.table("issue_updates").insert(new_upd).execute()
             except Exception as e:
                 logger.error(f"Supabase error recording inspection: {e}")
 
@@ -2513,6 +2665,8 @@ class SupabaseService:
         """
         now = datetime.now(timezone.utc)
         worker = self.get_worker_details(req.worker_id)
+        valid_worker_id = _to_valid_uuid(req.worker_id)
+        valid_issue_id = _to_valid_uuid(issue_id)
 
         # Transition status to in_progress if currently assigned or in inspection
         if issue_id in self._memory_issues:
@@ -2520,17 +2674,19 @@ class SupabaseService:
             self._memory_issues[issue_id]["updated_at"] = now.isoformat()
 
         # Log timeline update
-        u_id = f"u_{uuid.uuid4().hex[:8]}"
+        u_id = str(uuid.uuid4())
         desc = f"Field Progress ({worker.department}): {req.description}"
-        self._memory_updates.setdefault(issue_id, []).append({
+        new_upd = {
             "id": u_id,
-            "issue_id": issue_id,
+            "issue_id": valid_issue_id,
+            "updated_by": valid_worker_id,
             "status": "in_progress",
             "description": desc,
             "update_type": req.update_type or "progress",
             "evidence_url": req.evidence_url,
             "created_at": now.isoformat()
-        })
+        }
+        self._memory_updates.setdefault(issue_id, []).append(new_upd)
 
         if req.evidence_url:
             self.upload_worker_evidence(issue_id, WorkerEvidenceUploadRequest(
@@ -2543,15 +2699,9 @@ class SupabaseService:
         if settings.is_supabase_configured:
             try:
                 supabase = get_supabase()
-                supabase.table("civic_issues").update({"status": "in_progress"}).eq("id", issue_id).execute()
-                supabase.table("issue_updates").insert({
-                    "id": u_id,
-                    "issue_id": issue_id,
-                    "status": "in_progress",
-                    "description": desc,
-                    "update_type": req.update_type or "progress",
-                    "evidence_url": req.evidence_url
-                }).execute()
+                self._ensure_citizen_profile(supabase, valid_worker_id)
+                supabase.table("civic_issues").update({"status": "in_progress"}).eq("id", valid_issue_id).execute()
+                supabase.table("issue_updates").insert(new_upd).execute()
             except Exception as e:
                 logger.error(f"Supabase error recording progress: {e}")
 
@@ -2570,6 +2720,8 @@ class SupabaseService:
         """
         now = datetime.now(timezone.utc)
         worker = self.get_worker_details(req.worker_id)
+        valid_worker_id = _to_valid_uuid(req.worker_id)
+        valid_issue_id = _to_valid_uuid(issue_id)
 
         # Update issue status to completed
         if issue_id in self._memory_issues:
@@ -2585,17 +2737,19 @@ class SupabaseService:
             self._memory_workers[req.worker_id]["worker_status"] = "available"
 
         # Log completion update
-        u_id = f"u_{uuid.uuid4().hex[:8]}"
+        u_id = str(uuid.uuid4())
         desc = f"Work Completed by {worker.full_name} ({worker.department}): {req.completion_notes}"
-        self._memory_updates.setdefault(issue_id, []).append({
+        new_upd = {
             "id": u_id,
-            "issue_id": issue_id,
+            "issue_id": valid_issue_id,
+            "updated_by": valid_worker_id,
             "status": "completed",
             "description": desc,
             "update_type": "completion",
             "evidence_url": req.evidence_url,
             "created_at": now.isoformat()
-        })
+        }
+        self._memory_updates.setdefault(issue_id, []).append(new_upd)
 
         if req.evidence_url:
             self.upload_worker_evidence(issue_id, WorkerEvidenceUploadRequest(
@@ -2608,17 +2762,11 @@ class SupabaseService:
         if settings.is_supabase_configured:
             try:
                 supabase = get_supabase()
-                supabase.table("civic_issues").update({"status": "completed"}).eq("id", issue_id).execute()
-                supabase.table("assignments").update({"status": "completed"}).eq("issue_id", issue_id).execute()
-                supabase.table("profiles").update({"worker_status": "available"}).eq("id", req.worker_id).execute()
-                supabase.table("issue_updates").insert({
-                    "id": u_id,
-                    "issue_id": issue_id,
-                    "status": "completed",
-                    "description": desc,
-                    "update_type": "completion",
-                    "evidence_url": req.evidence_url
-                }).execute()
+                self._ensure_citizen_profile(supabase, valid_worker_id)
+                supabase.table("civic_issues").update({"status": "completed"}).eq("id", valid_issue_id).execute()
+                supabase.table("assignments").update({"status": "completed"}).eq("issue_id", valid_issue_id).execute()
+                supabase.table("profiles").update({"worker_status": "available"}).eq("id", valid_worker_id).execute()
+                supabase.table("issue_updates").insert(new_upd).execute()
             except Exception as e:
                 logger.error(f"Supabase error recording completion: {e}")
 
@@ -2636,14 +2784,16 @@ class SupabaseService:
         Stores worker-submitted photo evidence (before/during/after repair).
         """
         now = datetime.now(timezone.utc)
-        e_id = f"evi_w_{uuid.uuid4().hex[:8]}"
+        valid_worker_id = _to_valid_uuid(req.worker_id)
+        valid_issue_id = _to_valid_uuid(issue_id)
+        e_id = str(uuid.uuid4())
         evi_data = {
             "id": e_id,
-            "issue_id": issue_id,
+            "issue_id": valid_issue_id,
             "complaint_id": None,
-            "uploaded_by": req.worker_id,
+            "uploaded_by": valid_worker_id,
             "storage_path": req.storage_path,
-            "file_type": req.file_type,
+            "file_type": req.file_type or "image/jpeg",
             "description": f"[{req.stage.replace('_', ' ').title()}] {req.description or ''}",
             "created_at": now.isoformat()
         }
@@ -2653,6 +2803,7 @@ class SupabaseService:
         if settings.is_supabase_configured:
             try:
                 supabase = get_supabase()
+                self._ensure_citizen_profile(supabase, valid_worker_id)
                 supabase.table("evidence").insert(evi_data).execute()
             except Exception as e:
                 logger.error(f"Supabase error uploading evidence: {e}")

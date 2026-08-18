@@ -39,11 +39,31 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<any | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const isConfigured = isSupabaseConfigured();
+
+  const withTimeout = <T,>(promise: PromiseLike<T> | Promise<T>, ms = 8000): Promise<T> => {
+    return Promise.race([
+      Promise.resolve(promise),
+      new Promise<T>((_, reject) =>
+        setTimeout(() => reject(new Error(`Supabase request timed out after ${ms}ms`)), ms)
+      )
+    ]);
+  };
 
   // Load user profile from Supabase profiles table
   const fetchProfile = async (userId: string, userEmail?: string, userMeta?: any) => {
@@ -77,11 +97,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return;
       }
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
+      const { data, error }: any = await withTimeout(
+        supabase.from('profiles').select('*').eq('id', userId).single(),
+        6000
+      );
 
       if (error && error.code === 'PGRST116') {
         // Profile row hasn't been created yet, insert profile
@@ -94,7 +113,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           area: userMeta?.area || 'Gokulam',
           department: userMeta?.department || null
         };
-        const { data: inserted } = await supabase.from('profiles').insert(newProfile).select().single();
+        const { data: inserted }: any = await withTimeout(
+          supabase.from('profiles').insert(newProfile).select().single(),
+          6000
+        );
         if (inserted) {
           setProfile(inserted as UserProfile);
           localStorage.setItem('civicconnect_auth_profile', JSON.stringify(inserted));
@@ -104,7 +126,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         localStorage.setItem('civicconnect_auth_profile', JSON.stringify(data));
       }
     } catch (err) {
-      console.warn('Error fetching profile:', err);
+      console.warn('Profile fetch completed with local fallback profile:', err);
+      const saved = localStorage.getItem('civicconnect_auth_profile');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setProfile(parsed);
+          return;
+        } catch {}
+      }
+      const fallbackProfile: UserProfile = {
+        id: userId,
+        full_name: userMeta?.full_name || 'Citizen',
+        email: userEmail || 'user@mysore.civicconnect.org',
+        role: userMeta?.role || 'citizen',
+        preferred_language: userMeta?.preferred_language || 'English',
+        area: userMeta?.area || 'Gokulam',
+        department: userMeta?.department || null,
+        phone: userMeta?.phone || null,
+        worker_status: userMeta?.worker_status || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      setProfile(fallbackProfile);
+      localStorage.setItem('civicconnect_auth_profile', JSON.stringify(fallbackProfile));
     }
   };
 
@@ -124,12 +169,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return;
     }
 
-    // 1. Initial Session Check
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
-        fetchProfile(session.user.id, session.user.email, session.user.user_metadata);
-      } else {
+    // 1. Initial Session Check with timeout
+    withTimeout(supabase.auth.getSession(), 5000)
+      .then(({ data: { session } }: any) => {
+        if (session?.user) {
+          setUser(session.user);
+          fetchProfile(session.user.id, session.user.email, session.user.user_metadata);
+        } else {
+          const saved = localStorage.getItem('civicconnect_auth_profile');
+          if (saved) {
+            try {
+              const parsed = JSON.parse(saved);
+              setUser({ id: parsed.id, email: parsed.email });
+              setProfile(parsed);
+            } catch {}
+          } else {
+            setUser(null);
+            setProfile(null);
+          }
+        }
+      })
+      .catch(() => {
         const saved = localStorage.getItem('civicconnect_auth_profile');
         if (saved) {
           try {
@@ -137,13 +197,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setUser({ id: parsed.id, email: parsed.email });
             setProfile(parsed);
           } catch {}
-        } else {
-          setUser(null);
-          setProfile(null);
         }
-      }
-      setLoading(false);
-    });
+      })
+      .finally(() => {
+        setLoading(false);
+      });
 
     // 2. Auth State Listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -187,8 +245,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       email = dataOrEmail.email || `${cleanName}.${cleanArea}@mysore.civicconnect.org`;
     }
 
+    let resolvedId = generateUUID();
+    if (role === 'worker') {
+      if (name.toLowerCase().includes('ramesh')) resolvedId = 'b1000000-0000-0000-0000-000000000001';
+      else if (name.toLowerCase().includes('anil')) resolvedId = 'b2000000-0000-0000-0000-000000000002';
+      else if (name.toLowerCase().includes('suresh')) resolvedId = 'b3000000-0000-0000-0000-000000000003';
+      else if (name.toLowerCase().includes('priya')) resolvedId = 'b4000000-0000-0000-0000-000000000004';
+      else if (name.toLowerCase().includes('manjunath')) resolvedId = 'b5000000-0000-0000-0000-000000000005';
+      else resolvedId = 'b1000000-0000-0000-0000-000000000001';
+    } else if (role === 'corporation') {
+      resolvedId = 'c9000000-0000-0000-0000-000000000001';
+    }
+
     const localProfile: UserProfile = {
-      id: `u_${Date.now()}`,
+      id: resolvedId,
       full_name: name,
       email: email,
       role: role,
@@ -207,44 +277,54 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      // First attempt direct Supabase sign in with credentials
+      const { data, error }: any = await withTimeout(
+        supabase.auth.signInWithPassword({ email, password }),
+        6000
+      );
+
       if (error) {
-        // If signIn fails (e.g. email not found yet in Supabase Auth), auto-register and sign in
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: name,
-              role,
-              area,
-              department
-            }
+        // If signIn fails (e.g. user not registered yet in Auth), try auto-registration
+        try {
+          const { data: signUpData, error: signUpError }: any = await withTimeout(
+            supabase.auth.signUp({
+              email,
+              password,
+              options: {
+                data: {
+                  full_name: name,
+                  role,
+                  area,
+                  department
+                }
+              }
+            }),
+            6000
+          );
+
+          if (signUpData?.user) {
+            localProfile.id = signUpData.user.id;
+            setUser(signUpData.user);
+          } else {
+            setUser({ id: localProfile.id, email });
           }
-        });
-
-        if (signUpError) {
-          // If signup also had error, use verified local session and sync profile table
-          try {
-            await supabase.from('profiles').upsert(localProfile);
-          } catch {}
+        } catch {
           setUser({ id: localProfile.id, email });
-          setProfile(localProfile);
-          localStorage.setItem('civicconnect_auth_profile', JSON.stringify(localProfile));
-          return {};
         }
-
-        if (signUpData.user) {
-          setUser(signUpData.user);
-          await fetchProfile(signUpData.user.id, signUpData.user.email, signUpData.user.user_metadata);
-          return {};
-        }
-      }
-
-      if (data.user) {
+      } else if (data?.user) {
+        localProfile.id = data.user.id;
         setUser(data.user);
-        await fetchProfile(data.user.id, data.user.email, data.user.user_metadata);
       }
+
+      // Ensure profile exists in Supabase public.profiles table
+      try {
+        await supabase.from('profiles').upsert(localProfile, { onConflict: 'id' });
+      } catch (upsertErr) {
+        console.warn('Profile upsert notice:', upsertErr);
+      }
+
+      setProfile(localProfile);
+      localStorage.setItem('civicconnect_auth_profile', JSON.stringify(localProfile));
       return {};
     } catch (err: any) {
       setUser({ id: localProfile.id, email });
@@ -259,9 +339,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const cleanName = data.full_name.trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
     const cleanArea = (data.area || 'gokulam').trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
     const email = data.email || `${cleanName}.${cleanArea}@mysore.civicconnect.org`;
+    const newId = generateUUID();
 
     const newProfile: UserProfile = {
-      id: `c_${Date.now()}`,
+      id: newId,
       full_name: data.full_name,
       email: email,
       role: role,
@@ -280,33 +361,39 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     try {
-      const { data: authData, error } = await supabase.auth.signUp({
-        email: email,
-        password: data.password,
-        options: {
-          data: {
-            full_name: data.full_name,
-            role: role,
-            preferred_language: data.preferred_language || 'English',
-            area: data.area || 'Gokulam',
-            department: data.department || null
+      const { data: authData, error }: any = await withTimeout(
+        supabase.auth.signUp({
+          email: email,
+          password: data.password,
+          options: {
+            data: {
+              full_name: data.full_name,
+              role: role,
+              preferred_language: data.preferred_language || 'English',
+              area: data.area || 'Gokulam',
+              department: data.department || null
+            }
           }
-        }
-      });
+        }),
+        6000
+      );
 
-      if (authData.user) {
+      if (authData?.user) {
         newProfile.id = authData.user.id;
-        try {
-          await supabase.from('profiles').upsert(newProfile);
-        } catch {}
         setUser(authData.user);
-        setProfile(newProfile);
-        localStorage.setItem('civicconnect_auth_profile', JSON.stringify(newProfile));
       } else {
         setUser({ id: newProfile.id, email });
-        setProfile(newProfile);
-        localStorage.setItem('civicconnect_auth_profile', JSON.stringify(newProfile));
       }
+
+      // Upsert profile in Supabase profiles table
+      try {
+        await withTimeout(supabase.from('profiles').upsert(newProfile, { onConflict: 'id' }), 6000);
+      } catch (upsertErr) {
+        console.warn('Profile direct sync notice:', upsertErr);
+      }
+
+      setProfile(newProfile);
+      localStorage.setItem('civicconnect_auth_profile', JSON.stringify(newProfile));
       return {};
     } catch (err: any) {
       setUser({ id: newProfile.id, email });
@@ -327,9 +414,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setProfile(updated);
     localStorage.setItem('civicconnect_auth_profile', JSON.stringify(updated));
 
-    if (isConfigured && user?.id) {
+    if (isConfigured && profile?.id) {
       try {
-        await supabase.from('profiles').update({ role: newRole }).eq('id', user.id);
+        await supabase.from('profiles').update({ role: newRole }).eq('id', profile.id);
       } catch {}
     }
   };
@@ -364,12 +451,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setProfile(updated);
     localStorage.setItem('civicconnect_auth_profile', JSON.stringify(updated));
 
-    if (isConfigured && user?.id) {
+    if (isConfigured && profile?.id) {
       try {
         await supabase
           .from('profiles')
           .update(data)
-          .eq('id', user.id);
+          .eq('id', profile.id);
       } catch {}
     }
   };

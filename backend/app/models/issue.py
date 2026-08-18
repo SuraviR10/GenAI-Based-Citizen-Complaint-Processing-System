@@ -46,10 +46,13 @@ class CivicCategory(str, Enum):
 
 class IssueStatus(str, Enum):
     REPORTED = "reported"
+    REVIEWED = "reviewed"
     UNDER_REVIEW = "reviewed"
+    ASSIGNED = "assigned"
     WORKER_ASSIGNED = "assigned"
     INSPECTION = "inspection"
     IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
     RESOLVED = "completed"
     REJECTED = "rejected"
 
@@ -358,6 +361,11 @@ class WorkerTaskResponse(BaseModel):
     status: IssueStatus
     assigned_at: datetime
     instructions: Optional[str] = None
+    priority_directive: Optional[str] = "Standard Dispatch"
+    target_deadline: Optional[str] = None
+    equipment_required: List[str] = Field(default_factory=list)
+    assigned_by: Optional[str] = None
+    assigned_by_name: Optional[str] = None
     required_action: str
     citizen_photos: List[str] = Field(default_factory=list)
     worker_photos: List[str] = Field(default_factory=list)

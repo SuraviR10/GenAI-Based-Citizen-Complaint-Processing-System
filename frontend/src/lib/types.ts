@@ -302,6 +302,11 @@ export interface WorkerTask {
   status: IssueStatus;
   assigned_at: string;
   instructions?: string | null;
+  priority_directive?: string | null;
+  target_deadline?: string | null;
+  equipment_required?: string[];
+  assigned_by?: string | null;
+  assigned_by_name?: string | null;
   required_action: string;
   citizen_photos: string[];
   worker_photos: string[];

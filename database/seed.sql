@@ -1,5 +1,5 @@
 -- ====================================================================
--- CIVICCONNECT AI - MYSURU (MCC) SEED DATA (100% IDEMPOTENT)
+-- CIVICCONNECT AI - MYSURU (MCC) SEED DATA (100% IDEMPOTENT & VALID UUIDS)
 -- Populate realistic profiles, civic issues, updates, and assignments
 -- ====================================================================
 
@@ -27,7 +27,7 @@ INSERT INTO public.profiles (
     'available'
 ),
 (
-    'w1000000-0000-0000-0000-000000000001',
+    'b1000000-0000-0000-0000-000000000001',
     'Ramesh Rao',
     'ramesh.rao@mcc.gov.in',
     'worker',
@@ -38,7 +38,7 @@ INSERT INTO public.profiles (
     'assigned'
 ),
 (
-    'w2000000-0000-0000-0000-000000000002',
+    'b2000000-0000-0000-0000-000000000002',
     'Anil Kumar',
     'anil.kumar@mcc.gov.in',
     'worker',
@@ -49,7 +49,7 @@ INSERT INTO public.profiles (
     'assigned'
 ),
 (
-    'w3000000-0000-0000-0000-000000000003',
+    'b3000000-0000-0000-0000-000000000003',
     'Suresh Gowda',
     'suresh.gowda@mcc.gov.in',
     'worker',
@@ -60,7 +60,7 @@ INSERT INTO public.profiles (
     'available'
 ),
 (
-    'w4000000-0000-0000-0000-000000000004',
+    'b4000000-0000-0000-0000-000000000004',
     'Priya Sharma',
     'priya.sharma@mcc.gov.in',
     'worker',
@@ -71,7 +71,7 @@ INSERT INTO public.profiles (
     'available'
 ),
 (
-    'w5000000-0000-0000-0000-000000000005',
+    'b5000000-0000-0000-0000-000000000005',
     'Manjunath K',
     'manjunath.k@mcc.gov.in',
     'worker',
@@ -270,7 +270,7 @@ INSERT INTO public.assignments (
 ) VALUES
 (
     'a1000000-0000-0000-0000-000000000001',
-    'w1000000-0000-0000-0000-000000000001',
+    'b1000000-0000-0000-0000-000000000001',
     'c9000000-0000-0000-0000-000000000001',
     'Emergency crater repair. Mobilize hot-mix asphalt unit and traffic safety cones.',
     '🚨 Emergency / Immediate Dispatch',
@@ -281,7 +281,7 @@ INSERT INTO public.assignments (
 ),
 (
     'a2000000-0000-0000-0000-000000000002',
-    'w2000000-0000-0000-0000-000000000002',
+    'b2000000-0000-0000-0000-000000000002',
     'c9000000-0000-0000-0000-000000000001',
     'Jetting and clearance of blocked sewer line near complex.',
     '⚡ High Urgency (24h-48h)',
