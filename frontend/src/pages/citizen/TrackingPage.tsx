@@ -54,6 +54,7 @@ export const TrackingPage: React.FC = () => {
   }, [issueId, user?.id]);
 
   const getCurrentStepIndex = (status: IssueStatus) => {
+    if (status === 'completed' || (status as string) === 'resolved') return 4;
     const order: IssueStatus[] = ['reported', 'reviewed', 'assigned', 'in_progress', 'completed'];
     const idx = order.indexOf(status);
     return idx !== -1 ? idx : 0;
@@ -79,6 +80,7 @@ export const TrackingPage: React.FC = () => {
     );
   }
 
+  const isResolved = issue.status === 'completed' || (issue.status as string) === 'resolved';
   const currentStepIdx = getCurrentStepIndex(issue.status);
 
   return (
@@ -152,17 +154,17 @@ export const TrackingPage: React.FC = () => {
               position: 'absolute',
               top: '18px',
               left: '5%',
-              width: `${(currentStepIdx / (STATUS_STEPS.length - 1)) * 90}%`,
+              width: isResolved ? '90%' : `${(currentStepIdx / (STATUS_STEPS.length - 1)) * 90}%`,
               height: '3px',
-              backgroundColor: 'var(--color-accent-500)',
+              backgroundColor: isResolved ? '#10b981' : 'var(--color-accent-500)',
               transition: 'width 0.4s ease',
               zIndex: 2
             }}
           />
 
           {STATUS_STEPS.map((step, idx) => {
-            const isDone = idx < currentStepIdx;
-            const isCurrent = idx === currentStepIdx;
+            const isStepDone = isResolved ? true : idx < currentStepIdx;
+            const isCurrent = !isResolved && idx === currentStepIdx;
 
             return (
               <div
@@ -181,18 +183,26 @@ export const TrackingPage: React.FC = () => {
                     width: '36px',
                     height: '36px',
                     borderRadius: 'var(--radius-full)',
-                    backgroundColor: isDone
+                    backgroundColor: isResolved
+                      ? '#10b981'
+                      : isStepDone
                       ? 'var(--color-accent-500)'
                       : isCurrent
                       ? 'var(--color-primary-800)'
                       : 'var(--color-bg-card)',
-                    color: isDone || isCurrent ? '#ffffff' : 'var(--color-text-muted)',
-                    border: isCurrent
+                    color: isStepDone || isCurrent || isResolved ? '#ffffff' : 'var(--color-text-muted)',
+                    border: isResolved
+                      ? '2px solid #10b981'
+                      : isCurrent
                       ? '3px solid var(--color-accent-400)'
-                      : isDone
+                      : isStepDone
                       ? '2px solid var(--color-accent-500)'
                       : '2px solid var(--color-border)',
-                    boxShadow: isCurrent ? '0 0 12px rgba(0, 173, 181, 0.45)' : 'var(--shadow-sm)',
+                    boxShadow: isResolved
+                      ? '0 0 12px rgba(16, 185, 129, 0.45)'
+                      : isCurrent
+                      ? '0 0 12px rgba(0, 173, 181, 0.45)'
+                      : 'var(--shadow-sm)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -200,15 +210,21 @@ export const TrackingPage: React.FC = () => {
                     fontWeight: 700
                   }}
                 >
-                  {isDone ? <Check size={16} strokeWidth={3} /> : idx + 1}
+                  {isStepDone || isResolved ? <Check size={16} strokeWidth={3} /> : idx + 1}
                 </div>
 
                 <span
                   style={{
                     marginTop: '8px',
                     fontSize: '0.75rem',
-                    fontWeight: isCurrent ? 700 : isDone ? 600 : 500,
-                    color: isCurrent ? 'var(--color-primary-800)' : isDone ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+                    fontWeight: isCurrent || (isResolved && idx === 4) ? 700 : isStepDone ? 600 : 500,
+                    color: isResolved && idx === 4
+                      ? '#10b981'
+                      : isCurrent
+                      ? 'var(--color-primary-800)'
+                      : isStepDone
+                      ? 'var(--color-text-primary)'
+                      : 'var(--color-text-muted)',
                     textAlign: 'center',
                     lineHeight: 1.2
                   }}
@@ -223,23 +239,35 @@ export const TrackingPage: React.FC = () => {
         {/* Current State Info Banner */}
         <div
           style={{
-            backgroundColor: 'var(--color-bg-subtle)',
+            backgroundColor: isResolved ? '#f0fdf4' : 'var(--color-bg-subtle)',
             padding: '14px 18px',
             borderRadius: 'var(--radius-md)',
-            border: '1px solid var(--color-border)',
+            border: isResolved ? '1.5px solid #86efac' : '1px solid var(--color-border)',
             display: 'flex',
             alignItems: 'center',
             gap: '12px'
           }}
         >
-          <div className="icon-container-3d-cyan" style={{ width: '40px', height: '40px', borderRadius: 'var(--radius-full)' }}>
-            <Activity size={20} />
+          <div
+            className={isResolved ? '' : 'icon-container-3d-cyan'}
+            style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: 'var(--radius-full)',
+              backgroundColor: isResolved ? '#dcfce7' : undefined,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}
+          >
+            {isResolved ? <Check size={22} color="#16a34a" strokeWidth={3} /> : <Activity size={20} />}
           </div>
           <div>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
-              {t.currentStatusBanner}
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: isResolved ? '#15803d' : 'var(--color-text-muted)', textTransform: 'uppercase' }}>
+              {isResolved ? 'Issue Resolved' : t.currentStatusBanner}
             </span>
-            <p style={{ fontSize: '0.925rem', fontWeight: 700, color: 'var(--color-primary-800)' }}>
+            <p style={{ fontSize: '0.925rem', fontWeight: 700, color: isResolved ? '#166534' : 'var(--color-primary-800)' }}>
               {STATUS_STEPS[currentStepIdx]?.description}
             </p>
           </div>

@@ -1040,29 +1040,53 @@ class ApiClient {
       return await this.request(`/api/complaints/my?citizen_id=${encodeURIComponent(citizenId)}`);
     } catch {
       const { data } = await supabase.from('complaints')
-        .select('*')
+        .select('*, civic_issues(*)')
         .eq('citizen_id', citizenId)
         .order('created_at', { ascending: false });
 
       if (!data) return [];
-      return data.map((c: any) => ({
-        id: c.id,
-        citizen_id: c.citizen_id,
-        civic_issue_id: c.civic_issue_id,
-        original_text: c.original_text,
-        normalized_text: c.normalized_text,
-        language: c.language || 'English',
-        category: c.category,
-        area: c.area,
-        landmark: c.landmark,
-        duration: c.duration,
-        accident_reported: Boolean(c.accident_reported),
-        accident_description: c.accident_description,
-        injuries_count: c.injuries_count || 0,
-        status: (c.status || 'reported') as IssueStatus,
-        created_at: c.created_at,
-        updated_at: c.updated_at
-      }));
+      return data.map((c: any) => {
+        const iss = c.civic_issues;
+        const compStatus = (iss?.status === 'completed' || iss?.status === 'resolved' || c.status === 'completed' || c.status === 'resolved')
+          ? 'completed'
+          : (c.status || 'reported');
+
+        return {
+          id: c.id,
+          citizen_id: c.citizen_id,
+          civic_issue_id: c.civic_issue_id,
+          original_text: c.original_text,
+          normalized_text: c.normalized_text,
+          language: c.language || 'English',
+          category: c.category,
+          area: c.area,
+          landmark: c.landmark,
+          duration: c.duration,
+          accident_reported: Boolean(c.accident_reported),
+          accident_description: c.accident_description,
+          injuries_count: c.injuries_count || 0,
+          status: compStatus as IssueStatus,
+          issue: iss ? {
+            id: iss.id,
+            title: iss.title,
+            description: iss.description,
+            category: iss.category,
+            area: iss.area,
+            landmark: iss.landmark || null,
+            latitude: iss.latitude ?? null,
+            longitude: iss.longitude ?? null,
+            priority_score: iss.priority_score || 50,
+            priority_level: iss.priority_level || 'medium',
+            status: iss.status || 'reported',
+            support_count: 0,
+            complaints_count: 1,
+            created_at: iss.created_at,
+            updated_at: iss.updated_at
+          } : null,
+          created_at: c.created_at,
+          updated_at: c.updated_at
+        };
+      });
     }
   }
 
@@ -1312,6 +1336,10 @@ class ApiClient {
       const dbStatus = data.status === 'inspection' ? 'in_progress' : data.status;
 
       await supabase.from('civic_issues').update({ status: dbStatus, updated_at: now }).eq('id', issueId);
+      if (dbStatus === 'completed') {
+        await supabase.from('complaints').update({ status: 'completed', updated_at: now }).eq('civic_issue_id', issueId);
+        await supabase.from('assignments').update({ status: 'completed' }).eq('issue_id', issueId);
+      }
 
       try {
         await supabase.from('issue_updates').insert({
@@ -1319,7 +1347,7 @@ class ApiClient {
           issue_id: issueId,
           updated_by: data.actor_id || 'c9000000-0000-0000-0000-000000000001',
           status: dbStatus,
-          description: data.notes || `Status updated to ${data.status}`,
+          description: data.notes || `Status updated to ${data.status.replace('_', ' ')}`,
           update_type: data.status,
           created_at: now
         });
@@ -1628,24 +1656,42 @@ class ApiClient {
     } catch {
       const now = new Date().toISOString();
       await supabase.from('civic_issues').update({ status: 'completed', updated_at: now }).eq('id', taskId);
+      await supabase.from('complaints').update({ status: 'completed', updated_at: now }).eq('civic_issue_id', taskId);
       await supabase.from('assignments').update({ status: 'completed' }).eq('issue_id', taskId);
+      await supabase.from('profiles').update({ worker_status: 'available', updated_at: now }).eq('id', data.worker_id);
+
       try {
         await supabase.from('issue_updates').insert({
           id: crypto.randomUUID(),
           issue_id: taskId,
           updated_by: data.worker_id,
           status: 'completed',
-          description: `Repair completed: ${data.completion_notes}`,
+          description: `Work Completed: ${data.completion_notes}`,
           update_type: 'completion',
           evidence_url: data.evidence_url || null,
           created_at: now
         });
       } catch {}
 
+      if (data.evidence_url) {
+        try {
+          await supabase.from('evidence').insert({
+            id: crypto.randomUUID(),
+            civic_issue_id: taskId,
+            uploaded_by: data.worker_id,
+            storage_path: data.evidence_url,
+            file_url: data.evidence_url,
+            file_type: 'image/jpeg',
+            description: `Completion photo: ${data.completion_notes}`,
+            created_at: now
+          });
+        } catch {}
+      }
+
       return {
         success: true,
         status: 'completed',
-        message: 'Task marked as completed.'
+        message: 'Task marked as completed and complaint marked as resolved.'
       };
     }
   }

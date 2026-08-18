@@ -25,9 +25,11 @@ export const Timeline: React.FC<TimelineProps> = ({ updates, currentStatus }) =>
         return <Clock size={16} color="#3b82f6" />;
       case 'assigned':
         return <UserCheck size={16} color="#f59e0b" />;
+      case 'inspection':
       case 'in_progress':
         return <Wrench size={16} color="#c2410c" />;
       case 'completed':
+      case 'resolved' as any:
         return <CheckCheck size={16} color="#10b981" />;
       case 'rejected':
         return <AlertCircle size={16} color="#ef4444" />;

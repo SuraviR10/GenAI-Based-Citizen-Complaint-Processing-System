@@ -102,7 +102,7 @@ export const Badge: React.FC<BadgeProps> = ({
         Icon = ShieldAlert;
     }
   } else if (type === 'status') {
-    switch (normalized as IssueStatus) {
+    switch (normalized) {
       case 'reported':
         badgeClass = 'badge-neutral';
         Icon = FileText;
@@ -124,6 +124,7 @@ export const Badge: React.FC<BadgeProps> = ({
         label = customLabel || 'Work in Progress';
         break;
       case 'completed':
+      case 'resolved':
         badgeClass = 'badge-low';
         Icon = CheckCircle2;
         label = customLabel || 'Resolved';

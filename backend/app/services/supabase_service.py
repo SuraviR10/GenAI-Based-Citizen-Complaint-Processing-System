@@ -1340,6 +1340,7 @@ class SupabaseService:
                     for c in complaints_data:
                         iid = c.get("civic_issue_id")
                         issue_info = issue_map.get(iid, {}) if iid else {}
+                        comp_status = issue_info.get("status") if issue_info.get("status") in ["completed", "resolved"] else c.get("status", "reported")
                         results.append(ComplaintResponse(
                             id=c["id"],
                             citizen_id=c["citizen_id"],
@@ -1353,7 +1354,7 @@ class SupabaseService:
                             duration=c.get("duration", "not_sure"),
                             accident_reported=c.get("accident_reported", False),
                             accident_description=c.get("accident_description"),
-                            status=c.get("status", "reported"),
+                            status=comp_status,
                             created_at=c.get("created_at"),
                             updated_at=c.get("updated_at"),
                             issue_title=issue_info.get("title"),
@@ -1370,6 +1371,7 @@ class SupabaseService:
             if c.get("citizen_id") == citizen_id:
                 iid = c.get("civic_issue_id")
                 iss = self._memory_issues.get(iid, {}) if iid else {}
+                comp_status = iss.get("status") if iss.get("status") in ["completed", "resolved"] else c.get("status", "reported")
                 results.append(ComplaintResponse(
                     id=c["id"],
                     citizen_id=c["citizen_id"],
@@ -1383,7 +1385,7 @@ class SupabaseService:
                     duration=c.get("duration", "not_sure"),
                     accident_reported=c.get("accident_reported", False),
                     accident_description=c.get("accident_description"),
-                    status=c.get("status", "reported"),
+                    status=comp_status,
                     created_at=c.get("created_at"),
                     updated_at=c.get("updated_at"),
                     issue_title=iss.get("title"),
@@ -2181,6 +2183,12 @@ class SupabaseService:
             self._memory_issues[issue_id]["status"] = target_status
             self._memory_issues[issue_id]["updated_at"] = now.isoformat()
 
+        if target_status == "completed":
+            for c in self._memory_complaints.values():
+                if c.get("civic_issue_id") == issue_id:
+                    c["status"] = "completed"
+                    c["updated_at"] = now.isoformat()
+
         # Log timeline update
         db_status = "in_progress" if target_status == "inspection" else target_status
         desc = req.notes or f"Issue status updated to {target_status.replace('_', ' ').title()} by {req.actor_role.title()}."
@@ -2203,7 +2211,9 @@ class SupabaseService:
                 supabase = get_supabase()
                 if actor_uuid:
                     self._ensure_citizen_profile(supabase, actor_uuid)
-                supabase.table("civic_issues").update({"status": db_status}).eq("id", valid_issue_id).execute()
+                supabase.table("civic_issues").update({"status": db_status, "updated_at": now.isoformat()}).eq("id", valid_issue_id).execute()
+                if target_status == "completed":
+                    supabase.table("complaints").update({"status": "completed", "updated_at": now.isoformat()}).eq("civic_issue_id", valid_issue_id).execute()
                 supabase.table("issue_updates").insert(new_update).execute()
             except Exception as e:
                 logger.error(f"Supabase error during status update: {e}")
@@ -2732,6 +2742,12 @@ class SupabaseService:
         if issue_id in self._memory_assignments:
             self._memory_assignments[issue_id]["status"] = "completed"
 
+        # Update complaints in memory
+        for c in self._memory_complaints.values():
+            if c.get("civic_issue_id") == issue_id:
+                c["status"] = "completed"
+                c["updated_at"] = now.isoformat()
+
         # Update worker status back to available
         if req.worker_id in self._memory_workers:
             self._memory_workers[req.worker_id]["worker_status"] = "available"
@@ -2763,7 +2779,8 @@ class SupabaseService:
             try:
                 supabase = get_supabase()
                 self._ensure_citizen_profile(supabase, valid_worker_id)
-                supabase.table("civic_issues").update({"status": "completed"}).eq("id", valid_issue_id).execute()
+                supabase.table("civic_issues").update({"status": "completed", "updated_at": now.isoformat()}).eq("id", valid_issue_id).execute()
+                supabase.table("complaints").update({"status": "completed", "updated_at": now.isoformat()}).eq("civic_issue_id", valid_issue_id).execute()
                 supabase.table("assignments").update({"status": "completed"}).eq("issue_id", valid_issue_id).execute()
                 supabase.table("profiles").update({"worker_status": "available"}).eq("id", valid_worker_id).execute()
                 supabase.table("issue_updates").insert(new_upd).execute()
