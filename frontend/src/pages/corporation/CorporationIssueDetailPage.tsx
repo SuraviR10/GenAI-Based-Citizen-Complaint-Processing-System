@@ -193,6 +193,54 @@ export const CorporationIssueDetailPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Work Completion Resolution Banner */}
+      {issue.status === 'completed' && (
+        <div
+          style={{
+            backgroundColor: '#f0fdf4',
+            border: '1.5px solid #86efac',
+            borderRadius: '12px',
+            padding: '16px 20px',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+            boxShadow: '0 1px 3px rgba(22, 163, 74, 0.08)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div
+              style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '50%',
+                backgroundColor: '#dcfce7',
+                color: '#16a34a',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}
+            >
+              <CheckCircle2 size={24} />
+            </div>
+            <div>
+              <div style={{ fontSize: '1rem', fontWeight: 800, color: '#166534' }}>
+                Municipal Work Completed &amp; Issue Resolved
+              </div>
+              <div style={{ fontSize: '0.82rem', color: '#15803d' }}>
+                The assigned field crew has completed on-site repairs. Citizens and municipal officers can view the completed audit timeline.
+              </div>
+            </div>
+          </div>
+          <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#166534', backgroundColor: '#dcfce7', padding: '4px 10px', borderRadius: '6px' }}>
+            Verified Resolution
+          </span>
+        </div>
+      )}
+
       {/* Grid: Triage Intelligence & Dispatch Details */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
         {/* Left Card: Priority & Safety Breakdown */}
@@ -311,9 +359,11 @@ export const CorporationIssueDetailPage: React.FC = () => {
                 )}
               </div>
 
-              <div style={{ fontSize: '0.74rem', color: '#94a3b8', display: 'flex', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: '0.74rem', color: '#94a3b8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span>Dispatched: {new Date(assignmentInfo.assigned_at).toLocaleString()}</span>
-                <span style={{ color: '#16a34a', fontWeight: 700 }}>Status: Dispatched</span>
+                <span style={{ color: issue.status === 'completed' ? '#16a34a' : '#0284c7', fontWeight: 700 }}>
+                  Status: {issue.status === 'completed' ? 'Completed & Resolved' : 'Dispatched / In Progress'}
+                </span>
               </div>
             </div>
           ) : (

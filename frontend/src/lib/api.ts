@@ -527,6 +527,26 @@ class ApiClient {
       const responses = iss.responses || [];
 
       const isSupp = citizenId ? supports.some((s: any) => s.citizen_id === citizenId) : false;
+      const assignments = iss.assignments || [];
+      const latestAsg = assignments.length > 0 ? assignments[assignments.length - 1] : null;
+      let assignedWorker = null;
+      if (latestAsg) {
+        assignedWorker = {
+          assignment_id: latestAsg.id,
+          worker_id: latestAsg.worker_id,
+          worker_name: latestAsg.worker_name || 'Field Crew',
+          department: latestAsg.department || iss.category || 'Field Operations',
+          phone: latestAsg.phone || null,
+          status: latestAsg.status || 'assigned',
+          instructions: latestAsg.instructions,
+          priority_directive: latestAsg.priority_directive,
+          target_deadline: latestAsg.target_deadline,
+          equipment_required: latestAsg.equipment_required || [],
+          assigned_at: latestAsg.assigned_at
+        };
+      }
+
+      const accidentsCount = complaints.filter((c: any) => c.accident_reported).length;
 
       return {
         id: iss.id,
@@ -543,10 +563,26 @@ class ApiClient {
         corroboration_level: (iss.corroboration_level || 'low') as 'low' | 'moderate' | 'high' | 'strong',
         support_count: supports.length,
         complaints_count: complaints.length || 1,
+        accident_reports_count: accidentsCount,
         has_user_supported: isSupp,
         evidence_count: evidence.length,
         created_at: iss.created_at,
         updated_at: iss.updated_at,
+        assigned_worker: assignedWorker,
+        complaints_summary: {
+          total_complaints: complaints.length || 1,
+          citizen_reported_accidents: accidentsCount,
+          assignment: assignedWorker ? {
+            assignment_id: assignedWorker.assignment_id,
+            worker_id: assignedWorker.worker_id,
+            worker_name: assignedWorker.worker_name,
+            department: assignedWorker.department,
+            phone: assignedWorker.phone,
+            status: assignedWorker.status,
+            instructions: assignedWorker.instructions,
+            assigned_at: assignedWorker.assigned_at
+          } : undefined
+        },
         updates: updates.map((u: any) => ({
           id: u.id,
           issue_id: u.issue_id,

@@ -90,8 +90,8 @@ export const IssueDetailsPage: React.FC = () => {
 
   return (
     <div className="container container-narrow" style={{ paddingTop: '1.5rem' }}>
-      {/* Back Button & Share */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+      {/* Back Button & Actions */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '8px' }}>
         <button
           onClick={() => navigate(-1)}
           style={{
@@ -110,10 +110,64 @@ export const IssueDetailsPage: React.FC = () => {
           <span>{t.backButton}</span>
         </button>
 
-        <Button variant="secondary" size="sm" leftIcon={<Share2 size={14} />} onClick={handleShare}>
-          {t.shareIssue}
-        </Button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <Button variant="cyan" size="sm" leftIcon={<Activity size={14} />} onClick={() => navigate(`/citizen/tracking/${issue.id}`)}>
+            {t.trackProgressAction || 'Track Progress'}
+          </Button>
+          <Button variant="secondary" size="sm" leftIcon={<Share2 size={14} />} onClick={handleShare}>
+            {t.shareIssue}
+          </Button>
+        </div>
       </div>
+
+      {/* Work Completion Resolution Banner */}
+      {(issue.status === 'completed' || (issue.status as string) === 'resolved') && (
+        <div
+          style={{
+            backgroundColor: '#f0fdf4',
+            border: '1.5px solid #86efac',
+            borderRadius: 'var(--radius-lg)',
+            padding: '16px 20px',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+            boxShadow: '0 1px 3px rgba(22, 163, 74, 0.08)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div
+              style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '50%',
+                backgroundColor: '#dcfce7',
+                color: '#16a34a',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}
+            >
+              <Activity size={22} color="#16a34a" />
+            </div>
+            <div>
+              <div style={{ fontSize: '1rem', fontWeight: 800, color: '#166534' }}>
+                Municipal Work Completed &amp; Issue Resolved
+              </div>
+              <div style={{ fontSize: '0.82rem', color: '#15803d' }}>
+                On-site remediation completed by municipal field operations. Verification logged on the public timeline.
+              </div>
+            </div>
+          </div>
+
+          <Button variant="cyan" size="sm" onClick={() => navigate(`/citizen/tracking/${issue.id}`)}>
+            View Live Tracking →
+          </Button>
+        </div>
+      )}
 
       {/* Main Issue Header Card with 3D Depth */}
       <Card style={{ padding: '2rem', marginBottom: '1.5rem' }}>
