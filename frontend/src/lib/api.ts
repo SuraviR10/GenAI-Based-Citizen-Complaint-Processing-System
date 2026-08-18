@@ -120,8 +120,95 @@ class ApiClient {
         body: JSON.stringify(data)
       });
     } catch {
-      const text = data.original_text.toLowerCase();
-      
+      const textClean = (data.original_text || '').trim();
+      const text = textClean.toLowerCase();
+
+      // ── NON-CIVIC PATTERN DETECTION ──
+      const nonCivicPatterns = [
+        /^(hi|hello|hey|test|testing|asdf|qwerty|zzz|aaa|bbb|yo|sup|hola)\b/,
+        /\b(girlfriend|boyfriend|love story|breakup|dating|marry|husband|wife|divorce|crush)\b/,
+        /\b(homework|essay on|write code|python script|solve this math|2\+2|calculate|exam|algebra)\b/,
+        /\b(restaurant food|ordered pizza|burger|zomato|swiggy|uber eats|movie review|cricket score|buy bitcoin|crypto|stock market|soup was cold)\b/,
+        /\b(how are you|who are you|what is your name|tell me a joke|sing a song|good morning|good evening)\b/,
+        /\b(iphone|android|smartphone|phone screen|display screen|screen cracked|screen replacement|cracked screen|mobile charger|charger|wifi router|pc gaming|playstation|xbox|netflix|youtube channel|laptop)\b/,
+        /\b(buy car|sell bike|flipkart delivery|amazon parcel|courier delay|shoes|clothes|online delivery|shopping|delivery order)\b/,
+        /\b(weather forecast|recipe|cook|bake|restaurant|hotel booking|flight ticket|train ticket|movie ticket)\b/,
+        /\b(social media|instagram|facebook|whatsapp|tiktok|snapchat|twitter)\b/,
+        /\b(salary|promotion|office politics|colleague|boss|company hr|resignation|interview)\b/,
+        /(ಪಿಜ್ಜಾ|ಆರ್ಡರ್|ಹೋಟೆಲ್|ಜೊಮ್ಯಾಟೊ|ಸ್ವಿಗ್ಗಿ|ಮೊಬೈಲ್|ಲ್ಯಾಪ್‌ಟಾಪ್|ಚಾರ್ಜರ್|ಸ್ಕ್ರೀನ್|ಫೋನ್|ಸಿನಿಮಾ|ಹಾಡು|ಹಲೋ|ಹೇಗಿದ್ದೀರಾ)/,
+        /(पिज़्ज़ा|ऑर्डर|होटल|ज़ोमैटो|स्वीगी|मोबाइल|लैपटॉप|चार्जर|स्क्रीन|फोन|सिनेमा|गाना|नमस्ते|कैसे हो|क्रिकेट|शॉपिंग|डिलीवर)/
+      ];
+      const isPatternMatch = nonCivicPatterns.some(pat => pat.test(text));
+
+      // ── GIBBERISH & REPETITION CHECKS ──
+      const cleanedAlpha = text.replace(/[^a-zA-Z]/g, '');
+      const isTooShort = textClean.length < 6 || textClean.split(/\s+/).length < 2;
+      const uniqueChars = new Set(text.replace(/\s/g, ''));
+      const isRepetitive = uniqueChars.size < 4;
+      const isGibberish = Boolean(cleanedAlpha && (
+        /(.)\1{3,}/.test(text) ||
+        /[bcdfghjklmnpqrstvwxyz]{6,}/.test(text)
+      ));
+
+      // ── CIVIC KEYWORD PRESENCE CHECK ──
+      const civicKeywords = [
+        'road', 'pothole', 'potholes', 'street', 'footpath', 'tar', 'asphalt', 'crater', 'lane', 'khadde', 'rasta', 'daari',
+        'water', 'sewage', 'drain', 'drainage', 'pipe', 'pipeline', 'leak', 'leaking', 'overflow', 'gutter', 'manhole', 'pani', 'neeru',
+        'light', 'lamp', 'bulb', 'electricity', 'wire', 'cable', 'blackout', 'roshni', 'deepa', 'streetlight',
+        'garbage', 'trash', 'waste', 'dump', 'dumping', 'bin', 'smell', 'odor', 'kachra', 'debris', 'sanitation',
+        'hazard', 'fire', 'danger', 'fall', 'falling', 'tree', 'shock', 'collapse', 'khatra', 'accident', 'injury', 'slip', 'traffic',
+        'park', 'garden', 'noise', 'pollution', 'stray', 'mosquito', 'fogging', 'ward', 'corporation', 'pavement', 'culvert',
+        'broken', 'damaged', 'crack', 'clogged', 'flooded', 'stagnant', 'stink', 'open', 'exposed',
+        'dark', 'parking', 'signal', 'jam', 'congestion', 'tanker', 'supply', 'transformer', 'spark', 'power',
+        // Kannada
+        'ರಸ್ತೆ', 'ಗುಂಡಿ', 'ಪಾದಚಾರಿ', 'ಹೊಂಡ', 'ನೀರು', 'ಒಳಚರಂಡಿ', 'ಸೋರಿಕೆ', 'ಕೊಳವೆ', 'ಮ್ಯಾನ್‌ಹೋಲ್',
+        'ದೀಪ', 'ಬೆಳಕು', 'ಬೀದಿದೀಪ', 'ಕತ್ತಲೆ', 'ತಂತಿ', 'ವಿದ್ಯುತ್', 'ಕಸ', 'ತ್ಯಾಜ್ಯ', 'ವಾಸನೆ', 'ನೈರ್ಮಲ್ಯ',
+        'ಅಪಾಯ', 'ಅಪಘಾತ', 'ಮರ', 'ಬಿದ್ದಿದೆ', 'ಚರಂಡಿ',
+        // Hindi
+        'सड़क', 'गड्ढा', 'गड्ढे', 'फुटपाथ', 'रास्ता', 'पानी', 'सीवेज', 'नाली', 'लीकेज', 'पाइप', 'मैनहोल',
+        'लाइट', 'स्ट्रीटलाइट', 'बत्ती', 'अंधेरा', 'बिजली', 'तार', 'खंभा', 'कचरा', 'कूड़ा', 'गंदगी',
+        'बदबू', 'सफाई', 'खतरा', 'दुर्घटना', 'पेड़', 'चोट'
+      ];
+      const hasCivicTerm = civicKeywords.some(kw => text.includes(kw));
+
+      // ── REJECTION DECISION ──
+      if (isTooShort || isRepetitive || isGibberish || isPatternMatch || !hasCivicTerm) {
+        // Detect language for localized rejection message
+        let detectedLang = data.language || 'English';
+        if (/[\u0C80-\u0CFF]/.test(textClean)) detectedLang = 'Kannada';
+        else if (/[\u0900-\u097F]/.test(textClean)) detectedLang = 'Hindi';
+
+        let rejectionReason =
+          'This does not appear to be a civic or municipal infrastructure issue. ' +
+          'CivicConnect AI is dedicated to public problems such as damaged roads, broken streetlights, ' +
+          'sewage leaks, garbage accumulation, and neighborhood safety hazards. ' +
+          'Please describe a genuine municipal problem, or contact the appropriate service for personal matters.';
+        if (detectedLang === 'Kannada') {
+          rejectionReason = 'ಇದು ಸಾರ್ವಜನಿಕ ಅಥವಾ ಪುರಸಭೆಯ ಸಮಸ್ಯೆಯಾಗಿ ಕಾಣಿಸುತ್ತಿಲ್ಲ. ಸಿವಿಕ್‌ಕನೆಕ್ಟ್ AI ರಸ್ತೆ ಗುಂಡಿ, ಒಳಚರಂಡಿ, ಬೀದಿದೀಪ ಮತ್ತು ಕಸದಂತಹ ಸಾರ್ವಜನಿಕ ಸಮಸ್ಯೆಗಳ ವರದಿಗೆ ಮಾತ್ರ ಮೀಸಲಾಗಿದೆ.';
+        } else if (detectedLang === 'Hindi') {
+          rejectionReason = 'यह कोई नागरिक या नगर निगम से संबंधित समस्या नहीं लग रही है। सिविककनेक्ट AI टूटी सड़कें, स्ट्रीटलाइट, सीवेज और कचरे जैसी सार्वजनिक समस्याओं के समाधान के लिए है।';
+        }
+
+        return {
+          is_civic_issue: false,
+          rejection_reason: rejectionReason,
+          category: 'Other Civic Issue',
+          problem_title: 'Non-Civic / Invalid Request',
+          normalized_text: textClean,
+          detected_language: detectedLang,
+          area: data.area || 'Mysuru',
+          landmark: data.landmark || null,
+          safety_concern: false,
+          severity_score: 1,
+          suggested_priority: 'low' as PriorityLevel,
+          reported_accidents_count: 0,
+          estimated_duration: data.duration || 'not_sure',
+          missing_critical_info: ['Valid municipal or civic problem description'],
+          is_fallback: true
+        };
+      }
+
+      // ── VALID CIVIC COMPLAINT — CATEGORIZE ──
       let category = 'Other Civic Issue';
       if (text.includes('pothole') || text.includes('road') || text.includes('footpath') || text.includes('tarmac') || text.includes('crater') || text.includes('asphalt')) {
         category = 'Roads & Footpaths';
