@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   ListOrdered, 
   Search, 
@@ -8,7 +8,8 @@ import {
   MessageSquare, 
   MapPin, 
   Flame, 
-  ShieldAlert 
+  ShieldAlert,
+  HardHat
 } from 'lucide-react';
 import { CivicIssue, MYSORE_AREAS } from '../../lib/types';
 import { api } from '../../lib/api';
@@ -29,6 +30,7 @@ export const CorporationIssuesPage: React.FC = () => {
   const [area, setArea] = useState<string>('all');
   const [priority, setPriority] = useState<string>('all');
   const [status, setStatus] = useState<string>('all');
+  const [crewFilter, setCrewFilter] = useState<string>('all');
   const [sort, setSort] = useState<string>('priority');
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -72,8 +74,21 @@ export const CorporationIssuesPage: React.FC = () => {
     setArea('all');
     setPriority('all');
     setStatus('all');
+    setCrewFilter('all');
     setSort('priority');
   };
+
+  const filteredIssues = useMemo(() => {
+    return issues.filter((issue) => {
+      if (crewFilter === 'unassigned') {
+        return !issue.assigned_worker || !issue.assigned_worker.worker_id;
+      }
+      if (crewFilter === 'assigned') {
+        return Boolean(issue.assigned_worker && issue.assigned_worker.worker_id);
+      }
+      return true;
+    });
+  }, [issues, crewFilter]);
 
   return (
     <CorporationLayout>
@@ -81,10 +96,10 @@ export const CorporationIssuesPage: React.FC = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h1 style={{ fontSize: '1.6rem', fontWeight: 900, color: '#0f172a', margin: '0 0 4px 0' }}>
-            Priority Issues Directory
+            Priority Issues Directory &amp; Dispatch
           </h1>
           <p style={{ fontSize: '0.85rem', color: '#64748b', margin: 0 }}>
-            Browse and triage municipal complaints sorted by objective priority score.
+            Browse, filter, and triage municipal complaints ranked by deterministic priority score.
           </p>
         </div>
 
@@ -111,7 +126,7 @@ export const CorporationIssuesPage: React.FC = () => {
         }}
       >
         <form onSubmit={handleSearchSubmit}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '12px', marginBottom: '12px' }}>
             {/* Search Input */}
             <div>
               <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
@@ -128,7 +143,7 @@ export const CorporationIssuesPage: React.FC = () => {
                     padding: '8px 10px 8px 30px',
                     borderRadius: '8px',
                     border: '1px solid #cbd5e1',
-                    fontSize: '0.85rem'
+                    fontSize: '0.82rem'
                   }}
                 />
                 <Search size={14} color="#94a3b8" style={{ position: 'absolute', left: '10px', top: '10px' }} />
@@ -148,7 +163,7 @@ export const CorporationIssuesPage: React.FC = () => {
                   padding: '8px 10px',
                   borderRadius: '8px',
                   border: '1px solid #cbd5e1',
-                  fontSize: '0.85rem',
+                  fontSize: '0.82rem',
                   backgroundColor: '#ffffff'
                 }}
               >
@@ -161,7 +176,7 @@ export const CorporationIssuesPage: React.FC = () => {
               </select>
             </div>
 
-            {/* Area */}
+            {/* Ward / Area */}
             <div>
               <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
                 Municipal Ward / Area:
@@ -174,16 +189,39 @@ export const CorporationIssuesPage: React.FC = () => {
                   padding: '8px 10px',
                   borderRadius: '8px',
                   border: '1px solid #cbd5e1',
-                  fontSize: '0.85rem',
+                  fontSize: '0.82rem',
                   backgroundColor: '#ffffff'
                 }}
               >
-                <option value="all">All Mysuru Wards / Localities</option>
+                <option value="all">All Mysuru Localities</option>
                 {MYSORE_AREAS.map((a) => (
                   <option key={a} value={a}>
                     {a}, Mysuru
                   </option>
                 ))}
+              </select>
+            </div>
+
+            {/* Crew Dispatch Status */}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
+                Field Crew Dispatch:
+              </label>
+              <select
+                value={crewFilter}
+                onChange={(e) => setCrewFilter(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '0.82rem',
+                  backgroundColor: '#ffffff'
+                }}
+              >
+                <option value="all">All Crew Statuses</option>
+                <option value="unassigned">⚠️ Unassigned Only (Needs Dispatch)</option>
+                <option value="assigned">👷 Dispatched Crew</option>
               </select>
             </div>
 
@@ -200,7 +238,7 @@ export const CorporationIssuesPage: React.FC = () => {
                   padding: '8px 10px',
                   borderRadius: '8px',
                   border: '1px solid #cbd5e1',
-                  fontSize: '0.85rem',
+                  fontSize: '0.82rem',
                   backgroundColor: '#ffffff'
                 }}
               >
@@ -212,7 +250,7 @@ export const CorporationIssuesPage: React.FC = () => {
               </select>
             </div>
 
-            {/* Status */}
+            {/* Lifecycle Status */}
             <div>
               <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
                 Lifecycle Status:
@@ -225,7 +263,7 @@ export const CorporationIssuesPage: React.FC = () => {
                   padding: '8px 10px',
                   borderRadius: '8px',
                   border: '1px solid #cbd5e1',
-                  fontSize: '0.85rem',
+                  fontSize: '0.82rem',
                   backgroundColor: '#ffffff'
                 }}
               >
@@ -253,7 +291,7 @@ export const CorporationIssuesPage: React.FC = () => {
                   padding: '8px 10px',
                   borderRadius: '8px',
                   border: '1px solid #cbd5e1',
-                  fontSize: '0.85rem',
+                  fontSize: '0.82rem',
                   backgroundColor: '#ffffff'
                 }}
               >
@@ -277,7 +315,7 @@ export const CorporationIssuesPage: React.FC = () => {
 
       {/* Issue Table */}
       <IssueTable
-        issues={issues}
+        issues={filteredIssues}
         onAssignClick={(issue) => {
           setActiveModalIssue(issue);
           setIsAssignModalOpen(true);
@@ -298,7 +336,7 @@ export const CorporationIssuesPage: React.FC = () => {
         issue={activeModalIssue}
         onClose={() => setIsAssignModalOpen(false)}
         onAssigned={(res) => {
-          success('Worker Assigned', res.message || 'Field task assigned successfully.');
+          success('Worker Dispatched', res.message || 'Field task assigned successfully.');
           fetchIssues();
         }}
       />

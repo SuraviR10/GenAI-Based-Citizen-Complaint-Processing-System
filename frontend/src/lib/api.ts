@@ -418,6 +418,9 @@ class ApiClient {
     worker_id: string;
     assigned_by?: string;
     instructions?: string;
+    priority_directive?: string;
+    target_deadline?: string;
+    equipment_required?: string[];
   }): Promise<{ success: boolean; assignment_id: string; worker_name: string; department: string; status: string; message: string }> {
     return this.request(`/api/corporation/issues/${issueId}/assign`, {
       method: 'POST',

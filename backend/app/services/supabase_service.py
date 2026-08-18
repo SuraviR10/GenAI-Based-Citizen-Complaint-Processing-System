@@ -1782,6 +1782,24 @@ class SupabaseService:
             if isinstance(i_status, IssueStatus):
                 i_status = i_status.value
 
+            # Assigned worker info
+            assigned_worker_info = None
+            if asg:
+                w_profile = self._memory_workers.get(asg.get("worker_id", ""))
+                assigned_worker_info = {
+                    "assignment_id": asg.get("id"),
+                    "worker_id": asg.get("worker_id"),
+                    "worker_name": w_profile.get("full_name") if w_profile else "Field Worker",
+                    "department": w_profile.get("department") if w_profile else "Municipal Operations",
+                    "phone": w_profile.get("phone") if w_profile else None,
+                    "status": asg.get("status", "assigned"),
+                    "instructions": asg.get("instructions"),
+                    "priority_directive": asg.get("priority_directive"),
+                    "target_deadline": asg.get("target_deadline"),
+                    "equipment_required": asg.get("equipment_required", []),
+                    "assigned_at": asg.get("assigned_at")
+                }
+
             results.append(CivicIssueResponse(
                 id=i_id,
                 title=issue_dict.get("title", "Civic Problem"),
@@ -1804,7 +1822,8 @@ class SupabaseService:
                 simplified_response=simplified_res,
                 corroboration_level=corrob.corroboration_level.value,
                 accident_reports_count=accidents_count,
-                injuries_count=injuries_count
+                injuries_count=injuries_count,
+                assigned_worker=assigned_worker_info
             ))
 
         # Sorting: priority_score DESC by default
@@ -1851,6 +1870,9 @@ class SupabaseService:
                 "phone": w_profile.get("phone") if w_profile else None,
                 "status": asg.get("status", "assigned"),
                 "instructions": asg.get("instructions"),
+                "priority_directive": asg.get("priority_directive"),
+                "target_deadline": asg.get("target_deadline"),
+                "equipment_required": asg.get("equipment_required", []),
                 "assigned_at": asg.get("assigned_at")
             }
             if base_detail.complaints_summary is None:
@@ -1950,6 +1972,9 @@ class SupabaseService:
             "worker_id": req.worker_id,
             "assigned_by": req.assigned_by or "c9000000-0000-0000-0000-000000000001",
             "instructions": req.instructions or f"Assigned to {worker.full_name} ({worker.department}) for inspection and field action.",
+            "priority_directive": req.priority_directive or "Standard Dispatch",
+            "target_deadline": req.target_deadline,
+            "equipment_required": req.equipment_required or [],
             "status": "assigned",
             "assigned_at": now.isoformat()
         }
@@ -1964,8 +1989,17 @@ class SupabaseService:
         if req.worker_id in self._memory_workers:
             self._memory_workers[req.worker_id]["worker_status"] = "assigned"
 
-        # Add timeline update
-        update_text = f"{worker.department} assigned task to {worker.full_name}. {req.instructions or 'Field inspection and repair scheduled.'}"
+        # Build informative timeline update
+        details_extra = []
+        if req.priority_directive:
+            details_extra.append(f"Directive: {req.priority_directive}")
+        if req.target_deadline:
+            details_extra.append(f"Target SLA: {req.target_deadline}")
+        if req.equipment_required:
+            details_extra.append(f"Equipment: {', '.join(req.equipment_required)}")
+        
+        extra_str = f" [{'; '.join(details_extra)}]" if details_extra else ""
+        update_text = f"{worker.department} assigned task to {worker.full_name}. {req.instructions or 'Field inspection and repair scheduled.'}{extra_str}"
         u_id = f"u_{uuid.uuid4().hex[:8]}"
         new_update = {
             "id": u_id,
@@ -1986,7 +2020,7 @@ class SupabaseService:
             "user_id": req.worker_id,
             "issue_id": issue_id,
             "type": "assignment",
-            "message": f"New task assigned: Issue #{issue_id[:8]} ({worker.department}). {req.instructions or ''}",
+            "message": f"New task assigned: Issue #{issue_id[:8]} ({worker.department}). {req.instructions or ''}{extra_str}",
             "is_read": False,
             "created_at": now.isoformat()
         })

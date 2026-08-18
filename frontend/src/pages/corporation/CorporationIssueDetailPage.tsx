@@ -15,7 +15,8 @@ import {
   CheckCircle2,
   FileText,
   Lock,
-  Eye
+  Eye,
+  Phone
 } from 'lucide-react';
 import { CivicIssueDetail } from '../../lib/types';
 import { api } from '../../lib/api';
@@ -256,25 +257,63 @@ export const CorporationIssueDetailPage: React.FC = () => {
           </div>
 
           {assignmentInfo ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>
-                👷 {assignmentInfo.worker_name}
-              </div>
-              <div style={{ fontSize: '0.85rem', color: '#475569' }}>
-                🏢 Department: <strong>{assignmentInfo.department}</strong>
-              </div>
-              {assignmentInfo.phone && (
-                <div style={{ fontSize: '0.85rem', color: '#475569' }}>
-                  📞 Contact: <strong>{assignmentInfo.phone}</strong>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a' }}>
+                    👷 {assignmentInfo.worker_name}
+                  </div>
+                  <div style={{ fontSize: '0.82rem', color: '#64748b' }}>
+                    🏢 {assignmentInfo.department}
+                  </div>
                 </div>
-              )}
-              {assignmentInfo.instructions && (
-                <div style={{ fontSize: '0.8rem', color: '#334155', backgroundColor: '#f8fafc', padding: '8px', borderRadius: '6px', marginTop: '4px' }}>
-                  <strong>Directives: </strong>{assignmentInfo.instructions}
-                </div>
-              )}
-              <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '4px' }}>
-                Dispatched at {new Date(assignmentInfo.assigned_at).toLocaleTimeString()}
+
+                {assignmentInfo.phone && (
+                  <a
+                    href={`tel:${assignmentInfo.phone}`}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      backgroundColor: '#f1f5f9',
+                      color: '#0f172a',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      textDecoration: 'none',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <Phone size={12} /> Call Crew
+                  </a>
+                )}
+              </div>
+
+              {/* Directives & SLA */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', backgroundColor: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.8rem' }}>
+                {(assignmentInfo as any).priority_directive && (
+                  <div>
+                    <strong style={{ color: '#0f172a' }}>Directive: </strong>
+                    <span style={{ color: '#00adb5', fontWeight: 700 }}>{(assignmentInfo as any).priority_directive}</span>
+                  </div>
+                )}
+                {(assignmentInfo as any).target_deadline && (
+                  <div>
+                    <strong style={{ color: '#0f172a' }}>Target SLA: </strong>
+                    <span style={{ color: '#ea580c', fontWeight: 700 }}>{(assignmentInfo as any).target_deadline}</span>
+                  </div>
+                )}
+                {assignmentInfo.instructions && (
+                  <div style={{ color: '#334155', marginTop: '2px' }}>
+                    <strong style={{ color: '#0f172a' }}>Instructions: </strong>
+                    {assignmentInfo.instructions}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ fontSize: '0.74rem', color: '#94a3b8', display: 'flex', justifyContent: 'space-between' }}>
+                <span>Dispatched: {new Date(assignmentInfo.assigned_at).toLocaleString()}</span>
+                <span style={{ color: '#16a34a', fontWeight: 700 }}>Status: Dispatched</span>
               </div>
             </div>
           ) : (

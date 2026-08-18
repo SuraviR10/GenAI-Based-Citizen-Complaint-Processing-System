@@ -110,6 +110,7 @@ class CivicIssueResponse(CivicIssueBase):
     corroboration_level: Optional[str] = "low"
     accident_reports_count: Optional[int] = 0
     injuries_count: Optional[int] = 0
+    assigned_worker: Optional[dict] = None
 
 class CivicIssueDetailResponse(CivicIssueResponse):
     updates: List[dict] = Field(default_factory=list)
@@ -306,6 +307,9 @@ class WorkerAssignmentRequest(BaseModel):
     worker_id: str
     assigned_by: Optional[str] = None
     instructions: Optional[str] = None
+    priority_directive: Optional[str] = "Standard Dispatch"
+    target_deadline: Optional[str] = None
+    equipment_required: Optional[List[str]] = Field(default_factory=list)
 
 class WorkerAssignmentResponse(BaseModel):
     success: bool

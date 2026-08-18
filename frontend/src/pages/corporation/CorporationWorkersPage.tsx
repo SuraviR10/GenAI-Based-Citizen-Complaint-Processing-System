@@ -8,19 +8,29 @@ import {
   Clock, 
   Filter, 
   RefreshCw,
-  Search
+  Search,
+  UserCheck,
+  Send
 } from 'lucide-react';
 import { WorkerProfile } from '../../lib/types';
 import { api } from '../../lib/api';
 import { CorporationLayout } from '../../components/layout/CorporationLayout';
 import { Button } from '../../components/common/Button';
+import { AssignTaskToWorkerModal } from '../../components/corporation/AssignTaskToWorkerModal';
+import { useToast } from '../../context/ToastContext';
 
 export const CorporationWorkersPage: React.FC = () => {
+  const { success } = useToast();
+
   const [workers, setWorkers] = useState<WorkerProfile[]>([]);
   const [department, setDepartment] = useState<string>('all');
   const [status, setStatus] = useState<string>('all');
   const [search, setSearch] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  // Assign task modal
+  const [selectedWorker, setSelectedWorker] = useState<WorkerProfile | null>(null);
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState<boolean>(false);
 
   const fetchWorkers = async () => {
     setIsLoading(true);
@@ -60,7 +70,7 @@ export const CorporationWorkersPage: React.FC = () => {
             Field Crew Directory &amp; Dispatch
           </h1>
           <p style={{ fontSize: '0.85rem', color: '#64748b', margin: 0 }}>
-            Real-time availability, department rosters, active workloads, and field assignments.
+            Real-time availability, department rosters, active workloads, and direct field assignments.
           </p>
         </div>
 
@@ -138,10 +148,10 @@ export const CorporationWorkersPage: React.FC = () => {
           }}
         >
           <option value="all">All Worker Statuses</option>
-          <option value="available">Available</option>
-          <option value="assigned">Assigned</option>
-          <option value="on_site">On Site</option>
-          <option value="busy">Busy</option>
+          <option value="available">🟢 Available</option>
+          <option value="assigned">🔵 Assigned</option>
+          <option value="on_site">🟡 On Site</option>
+          <option value="busy">⚪ Busy</option>
         </select>
       </div>
 
@@ -163,7 +173,8 @@ export const CorporationWorkersPage: React.FC = () => {
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
-                gap: '14px'
+                gap: '14px',
+                transition: 'transform 0.15s ease, box-shadow 0.15s ease'
               }}
             >
               <div>
@@ -221,37 +232,62 @@ export const CorporationWorkersPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Workload Stats */}
-              <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', gap: '14px', fontSize: '0.78rem' }}>
+              {/* Workload Stats & Actions */}
+              <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '12px', fontSize: '0.78rem' }}>
                   <span>Active: <strong style={{ color: '#0f172a' }}>{w.active_tasks_count}</strong></span>
-                  <span>Completed: <strong style={{ color: '#16a34a' }}>{w.completed_tasks_count}</strong></span>
+                  <span>Done: <strong style={{ color: '#16a34a' }}>{w.completed_tasks_count}</strong></span>
                 </div>
 
-                {w.phone && (
-                  <a
-                    href={`tel:${w.phone}`}
-                    style={{
-                      padding: '4px 10px',
-                      borderRadius: '6px',
-                      backgroundColor: '#f1f5f9',
-                      color: '#0f172a',
-                      fontSize: '0.75rem',
-                      fontWeight: 700,
-                      textDecoration: 'none',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px'
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {w.phone && (
+                    <a
+                      href={`tel:${w.phone}`}
+                      style={{
+                        padding: '5px 10px',
+                        borderRadius: '6px',
+                        backgroundColor: '#f1f5f9',
+                        color: '#0f172a',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        textDecoration: 'none',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <Phone size={12} /> Call
+                    </a>
+                  )}
+
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    leftIcon={<UserCheck size={13} />}
+                    onClick={() => {
+                      setSelectedWorker(w);
+                      setIsAssignModalOpen(true);
                     }}
                   >
-                    <Phone size={12} /> Call
-                  </a>
-                )}
+                    Assign Task
+                  </Button>
+                </div>
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* Direct Task Dispatch Modal */}
+      <AssignTaskToWorkerModal
+        isOpen={isAssignModalOpen}
+        worker={selectedWorker}
+        onClose={() => setIsAssignModalOpen(false)}
+        onAssigned={(res) => {
+          success('Task Dispatched', res.message || 'Task successfully assigned to worker.');
+          fetchWorkers();
+        }}
+      />
     </CorporationLayout>
   );
 };

@@ -42,6 +42,22 @@ export interface CivicIssue {
   latest_update?: string | null;
   official_response?: string | null;
   simplified_response?: string | null;
+  corroboration_level?: 'low' | 'moderate' | 'high' | 'strong';
+  accident_reports_count?: number;
+  injuries_count?: number;
+  assigned_worker?: {
+    assignment_id: string;
+    worker_id: string;
+    worker_name: string;
+    department: string;
+    phone?: string | null;
+    status: string;
+    instructions?: string | null;
+    priority_directive?: string;
+    target_deadline?: string;
+    equipment_required?: string[];
+    assigned_at: string;
+  } | null;
 }
 
 export interface IssueUpdateItem {

@@ -12,7 +12,9 @@ import {
   ShieldCheck,
   RefreshCw,
   Search,
-  MessageSquare
+  MessageSquare,
+  UserCheck,
+  BellRing
 } from 'lucide-react';
 import { CivicIssue, CorporationDashboardData } from '../../lib/types';
 import { api } from '../../lib/api';
@@ -32,6 +34,7 @@ export const CorporationDashboard: React.FC = () => {
   const [issues, setIssues] = useState<CivicIssue[]>([]);
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
+  const [assignmentFilter, setAssignmentFilter] = useState<'all' | 'unassigned' | 'assigned'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -71,6 +74,24 @@ export const CorporationDashboard: React.FC = () => {
     loadData();
   };
 
+  // Filter issues by assignment status if requested
+  const displayedIssues = issues.filter((issue) => {
+    if (assignmentFilter === 'unassigned') {
+      return !issue.assigned_worker || !issue.assigned_worker.worker_id;
+    }
+    if (assignmentFilter === 'assigned') {
+      return Boolean(issue.assigned_worker && issue.assigned_worker.worker_id);
+    }
+    return true;
+  });
+
+  // Calculate unassigned critical/high count
+  const unassignedUrgentCount = issues.filter((i) => 
+    (i.priority_level === 'critical' || i.priority_level === 'high') &&
+    (!i.assigned_worker || !i.assigned_worker.worker_id) &&
+    i.status !== 'completed'
+  ).length;
+
   return (
     <CorporationLayout>
       {/* Top Banner / Triage Title */}
@@ -95,6 +116,12 @@ export const CorporationDashboard: React.FC = () => {
             Refresh Feed
           </Button>
 
+          <Link to="/corporation/workers">
+            <Button variant="outline" size="sm" leftIcon={<HardHat size={14} />}>
+              Field Crew Roster
+            </Button>
+          </Link>
+
           <Link to="/corporation/issues">
             <Button variant="primary" size="sm" rightIcon={<ArrowUpRight size={14} />}>
               All Issues Directory
@@ -102,6 +129,73 @@ export const CorporationDashboard: React.FC = () => {
           </Link>
         </div>
       </div>
+
+      {/* Urgent Unassigned Alert Banner */}
+      {unassignedUrgentCount > 0 && (
+        <div
+          style={{
+            backgroundColor: '#fff1f2',
+            border: '1px solid #fecdd3',
+            borderRadius: '12px',
+            padding: '14px 18px',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+            boxShadow: '0 1px 3px rgba(225, 29, 72, 0.08)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '8px',
+                backgroundColor: '#ffe4e6',
+                color: '#e11d48',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}
+            >
+              <Flame size={20} />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.92rem', fontWeight: 800, color: '#9f1239' }}>
+                Action Required: {unassignedUrgentCount} High-Priority / Critical Issue{unassignedUrgentCount > 1 ? 's' : ''} Pending Crew Dispatch
+              </div>
+              <div style={{ fontSize: '0.78rem', color: '#be123c' }}>
+                Citizen safety reports require immediate department field worker assignment.
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={() => {
+                setAssignmentFilter(assignmentFilter === 'unassigned' ? 'all' : 'unassigned');
+                setSelectedPriority('all');
+              }}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '6px',
+                backgroundColor: assignmentFilter === 'unassigned' ? '#e11d48' : '#ffffff',
+                color: assignmentFilter === 'unassigned' ? '#ffffff' : '#e11d48',
+                border: '1px solid #fda4af',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              {assignmentFilter === 'unassigned' ? 'Show All Issues' : 'Filter Unassigned Only →'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* KPI Triage Metrics Bar */}
       {stats && (
@@ -188,7 +282,7 @@ export const CorporationDashboard: React.FC = () => {
               Department Workloads &amp; Capacity
             </h2>
             <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
-              Click any department to filter issues queue below
+              Click any department card to filter issues and dispatch crews below
             </span>
           </div>
 
@@ -226,15 +320,15 @@ export const CorporationDashboard: React.FC = () => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-              Priority Triage Queue ({issues.length})
+              Priority Triage &amp; Dispatch Queue ({displayedIssues.length})
             </h2>
             <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
-              Ranked deterministically by score (0-100) factoring accidents, injuries, and community support
+              Ranked deterministically by score (0-100) factoring accidents, injuries, and verified community support
             </span>
           </div>
 
           {/* Quick Filters & Search */}
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             <form onSubmit={handleSearchSubmit} style={{ display: 'flex', alignItems: 'center' }}>
               <input
                 type="text"
@@ -251,6 +345,24 @@ export const CorporationDashboard: React.FC = () => {
               />
             </form>
 
+            {/* Assignment Filter */}
+            <select
+              value={assignmentFilter}
+              onChange={(e) => setAssignmentFilter(e.target.value as any)}
+              style={{
+                padding: '6px 10px',
+                borderRadius: '6px',
+                border: '1px solid #cbd5e1',
+                fontSize: '0.8rem',
+                backgroundColor: '#ffffff'
+              }}
+            >
+              <option value="all">All Crew States</option>
+              <option value="unassigned">⚠️ Unassigned Only</option>
+              <option value="assigned">👷 Dispatched Crew</option>
+            </select>
+
+            {/* Priority Filter */}
             <select
               value={selectedPriority}
               onChange={(e) => setSelectedPriority(e.target.value)}
@@ -273,7 +385,7 @@ export const CorporationDashboard: React.FC = () => {
 
         {/* Issue Table */}
         <IssueTable
-          issues={issues}
+          issues={displayedIssues}
           onAssignClick={(issue) => {
             setActiveModalIssue(issue);
             setIsAssignModalOpen(true);
@@ -295,7 +407,7 @@ export const CorporationDashboard: React.FC = () => {
         issue={activeModalIssue}
         onClose={() => setIsAssignModalOpen(false)}
         onAssigned={(res) => {
-          success('Worker Assigned', res.message || 'Field task assigned successfully.');
+          success('Worker Dispatched', res.message || 'Field task assigned successfully.');
           loadData();
         }}
       />
